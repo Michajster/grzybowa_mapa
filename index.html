@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b3a1f">
-<meta name="description" content="Gdzie dziś na grzyby? Mapa szansy na prawdziwki, podgrzybki, koźlarze, kurki i maślaki w każdym wydzieleniu 33 nadleśnictw Dolnego Śląska, z pogodą, porą roku i zakazami wstępu. Za darmo, bez reklam.">
+<meta name="description" content="Gdzie dziś na grzyby? Mapa szansy na prawdziwki, podgrzybki, koźlarze, kurki i maślaki w każdym wydzieleniu lasów państwowych w Polsce (429 nadleśnictw), z pogodą, porą roku i zakazami wstępu. Za darmo, bez reklam.">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pl_PL">
-<meta property="og:title" content="Grzybowa mapa Dolnego Śląska">
-<meta property="og:description" content="Gdzie dziś na grzyby? Szansa dla każdego kawałka lasu w 33 nadleśnictwach, z pogodą i porą roku. Za darmo, bez reklam.">
+<meta property="og:title" content="Grzybowa mapa">
+<meta property="og:description" content="Gdzie dziś na grzyby? Szansa dla każdego kawałka lasu państwowego w Polsce, z pogodą i porą roku. Za darmo, bez reklam.">
 <meta property="og:url" content="https://michajster.github.io/grzybowa_mapa/">
 <meta property="og:image" content="https://michajster.github.io/grzybowa_mapa/og.png">
 <meta property="og:image:width" content="1200">
@@ -17,7 +17,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="logo-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>Grzybowa Mapa Dolnego Śląska</title>
+<title>Grzybowa Mapa</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -259,7 +259,7 @@ ol.near button:hover{border-color:var(--accent)}
     <button class="paneltog" type="button" id="panelTog" aria-label="Zwiń panel" title="Zwiń panel (mapa na całą szerokość)">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>
     </button>
-    <div id="map" aria-label="Mapa lasów Dolnego Śląska z oceną szansy na grzyby"></div>
+    <div id="map" aria-label="Mapa lasów państwowych w Polsce z oceną szansy na grzyby"></div>
     <button class="locbtn" type="button" id="locate" aria-label="Pokaż moje położenie" title="Gdzie jestem">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
@@ -280,9 +280,9 @@ ol.near button:hover{border-color:var(--accent)}
     <header>
       <div class="brand">
         <img src="logo-64.png" srcset="logo-64.png 1x, logo-192.png 3x" width="48" height="48" alt="" class="logo">
-        <h1 id="title">Grzybowa mapa Dolnego Śląska</h1>
+        <h1 id="title">Grzybowa mapa</h1>
       </div>
-      <p class="sub">Szansa na grzyby w każdym wydzieleniu 33 nadleśnictw RDLP Wrocław, z danych Banku Danych o Lasach 2026. Wersja testowa.</p>
+      <p class="sub">Szansa na grzyby w każdym wydzieleniu lasów państwowych w Polsce (429 nadleśnictw), z danych Banku Danych o Lasach 2026. Wersja testowa.</p>
       <a class="coffee" id="supportLine" href="#" target="_blank" rel="noopener" hidden>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 2.5c0 1.5 1 1.5 1 3M12 2.5c0 1.5 1 1.5 1 3"/></svg>
         <span>Postaw mi kawę</span><small>mapa jest darmowa i bez reklam</small>
@@ -579,7 +579,7 @@ const $ = id => document.getElementById(id);
 
 // ---------- ładowanie danych (zwykłe <script>, działa też z dysku) ----------
 const GM = { _wait:{}, _data:{}, list:[],
-  add(code, d){ this._data[code]=d; (this._wait[code]||[]).forEach(f=>f(d)); delete this._wait[code]; },
+  add(code, d){ if (d.F) unpack(d); this._data[code]=d; (this._wait[code]||[]).forEach(f=>f(d)); delete this._wait[code]; },
   districts(list){ this.list=list; onDistricts(); },
   load(code){ return new Promise((res,rej)=>{ if(this._data[code]) return res(this._data[code]);
     (this._wait[code]=this._wait[code]||[]).push(res);
@@ -591,11 +591,25 @@ const S = {sp:"prawdziwek", moist:"auto", day:"weekend", avoid:false, sel:null, 
 function store(k,v){ try{ localStorage.setItem("gm-"+k, JSON.stringify(v)); }catch(e){} }
 function load(k,d){ try{ const v=localStorage.getItem("gm-"+k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
 // pierścienie zakodowane różnicowo w 1e-5 stopnia
-function ring(a){ const out=[]; let la=0, lo=0; for(let i=0;i<a.length;i+=2){ la+=a[i]; lo+=a[i+1]; out.push([la/1e5, lo/1e5]); } return out; }
+// (tekst: liczby w kodowaniu „polyline”, tablica: zwykłe liczby)
+function unpoly(s){ const v=[]; let i=0; while(i<s.length){ let r=0, sh=0, b; do { b=s.charCodeAt(i++)-63; r|=(b&31)<<sh; sh+=5; } while(b>=32); v.push(r&1 ? ~(r>>1) : r>>1); } return v; }
+function ring(a){ if (typeof a==="string") a=unpoly(a); const out=[]; let la=0, lo=0; for(let i=0;i<a.length;i+=2){ la+=a[i]; lo+=a[i+1]; out.push([la/1e5, lo/1e5]); } return out; }
+// dane w zwartym formacie (wiersze) -> obiekty używane w aplikacji
+const EXCL_NAMES = [null, "rezerwat", "ostoja zwierząt", "powierzchnia badawcza", "uprawa / młodnik"];
+function unpack(d){
+  d.f = d.F.map(r=>{ const mix=[]; for(let i=0;i<r[8].length;i+=2) mix.push([r[8][i], r[8][i+1]/100]);
+    return {o:r[0], w:r[1], k:r[2]+"-"+r[0], l:r[2]+"-"+r[3], site:r[4], age:r[5], sp:r[6], dens:r[7], mix, edge:r[9]/100, ha:r[10]/100,
+      x:EXCL_NAMES[r[11]], ll:[r[12]/1e5, r[13]/1e5], dr:r[14], crowd:r[15], wet:r[16]/100, g:r[17]}; });
+  // ocena siedliskowa liczona z tego samego modelu co w karcie „Dlaczego taka ocena?”
+  d.f.forEach(f=>{ f.s = {}; SP_ORDER.forEach(sp=>{ const x = factors(f, sp);
+    f.s[sp] = f.x ? 0 : Math.round(x.site*x.host*x.age*x.dens*(1+x.edgeBonus*x.edge)/1.3*1000)/10; }); });
+  d.comps = d.C.map(r=>({o:r[0], k:r[1]+"-"+r[0], l:r[1]+"-"+r[2], ll:[r[3]/1e5, r[4]/1e5], g:r[5]}));
+  delete d.F; delete d.C;
+}
 
 // ---------- mapa ----------
 // wszystkie obszary na jednej warstwie canvas – osobne warstwy przykrywały się i blokowały kliknięcia
-const map = L.map("map", {zoomControl:true, preferCanvas:true, renderer: L.canvas({padding:0.3, tolerance:3})}).setView([50.95,16.3], 8);
+const map = L.map("map", {zoomControl:true, preferCanvas:true, renderer: L.canvas({padding:0.3, tolerance:3})}).setView([52.0,19.3], 6);
 // Klucz MapTiler (darmowy plan na maptiler.com) wpisuje się w panelu „Podkład mapy”. Bez klucza: OpenStreetMap.
 // Klucz projektu (ograniczony w MapTilerze do domeny michajster.github.io i localhost).
 // Własny klucz wpisany w panelu „Podkład mapy” ma pierwszeństwo.
@@ -650,7 +664,11 @@ const dname = code => (GM.list.find(d=>d.code===code)||{}).name || "";
 
 function onDistricts(){
   const sel = $("district");
-  GM.list.slice().sort((a,b)=>a.name.localeCompare(b.name,"pl")).forEach(d=>{ const o=document.createElement("option"); o.value=d.code; o.textContent=`${d.name} (${Math.round(d.ha/1000)} tys. ha)`; sel.appendChild(o); });
+  const groups = {};
+  GM.list.slice().sort((a,b)=>a.name.localeCompare(b.name,"pl")).forEach(d=>{ const r = d.r || "Lasy";
+    if (!groups[r]) { groups[r] = document.createElement("optgroup"); groups[r].label = "RDLP " + r; }
+    const o=document.createElement("option"); o.value=d.code; o.textContent=`${d.name} (${Math.round(d.ha/1000)} tys. ha)`; groups[r].appendChild(o); });
+  Object.keys(groups).sort((a,b)=>a.localeCompare(b,"pl")).forEach(r=>sel.appendChild(groups[r]));
   GM.list.forEach(d=>{
     const rings = d.outline.map(ring); OUTL[d.code] = rings;
     FILLS[d.code] = L.polygon(rings, {color:"#2f4a36", weight:1.5, fillColor:"#6e8f5a", fillOpacity:.25}).on("click", ()=>focusDistrict(d.code)).bindTooltip(d.name, {sticky:true});
@@ -692,7 +710,8 @@ async function syncView(){
   [...LOADED.keys()].forEach(code=>{ if (!codes.includes(code)) { unloadDistrict(code); changed = true; } });
   want.forEach(d=>{ if (!LOADED.has(d.code)) { mountDistrict(d, GM._data[d.code]); changed = true; } });
   GM.list.forEach(d=>{ const on = !LOADED.has(d.code);
-    if (on) { FILLS[d.code].addTo(map); NAMES[d.code].addTo(map); } else { map.removeLayer(FILLS[d.code]); map.removeLayer(NAMES[d.code]); } });
+    if (on) FILLS[d.code].addTo(map); else map.removeLayer(FILLS[d.code]);
+    if (on && map.getZoom() >= 8 && map.getBounds().intersects(dBounds(d))) NAMES[d.code].addTo(map); else map.removeLayer(NAMES[d.code]); });
   if (changed) rebuild();
   // nadleśnictwo w środku mapy decyduje o pogodzie i liście wyboru
   const center = want[0] || null;
@@ -728,7 +747,7 @@ function rebuild(){
 }
 function updateTitle(){
   const names = [...LOADED.values()].map(e=>e.d.name);
-  $("title").textContent = !names.length ? "Grzybowa mapa Dolnego Śląska" : names.length===1 ? "Nadleśnictwo " + names[0] : "Nadleśnictwa: " + names.join(", ");
+  $("title").textContent = !names.length ? "Grzybowa mapa" : names.length===1 ? "Nadleśnictwo " + names[0] : "Nadleśnictwa: " + names.join(", ");
   if (!names.length) { $("wxVerdict").textContent = "Przybliż mapę albo wybierz las, a sprawdzę pogodę."; $("wxChart").innerHTML=""; $("wxText").textContent=""; $("wxFrom").textContent=$("wxTo").textContent=""; }
 }
 // wybór lasu z listy, z mapy przeglądowej albo przez lokalizację
@@ -942,10 +961,15 @@ S.ri = Math.max(0, Math.min(RADII.length-1, +load("ri", 2)));
 S.origin = load("origin", "me");
 const radiusKm = () => RADII[S.ri];
 // indeks najlepszych wydzieleń całego regionu, wczytywany przy pierwszym dalszym wyszukiwaniu
-GM.best = obj => { BEST = obj; (GM._bestWait||[]).forEach(f=>f()); GM._bestWait = []; };
-function loadBest(){ return new Promise((res, rej)=>{ if (BEST) return res();
-  if (!GM._bestWait) { GM._bestWait = []; const sc=document.createElement("script"); sc.src="data/best.js"; sc.onerror=()=>rej(new Error("brak indeksu")); document.head.appendChild(sc); }
-  GM._bestWait.push(res); }); }
+const BEST_FILES = {};
+GM.best = obj => { BEST = Object.assign(BEST||{}, obj); const r = Object.keys(obj)[0].slice(0,2); if (BEST_FILES[r]) BEST_FILES[r].done(); };
+function loadBestFile(r){ if (!BEST_FILES[r]) { const e = BEST_FILES[r] = {};
+    e.p = new Promise((res, rej)=>{ e.done = res;
+      const sc=document.createElement("script"); sc.src=`data/best_${r}.js`; sc.onerror=()=>{ delete BEST_FILES[r]; rej(new Error("brak indeksu")); }; document.head.appendChild(sc); }); }
+  return BEST_FILES[r].p; }
+// wczytaj indeksy tylko tych regionów (RDLP), których lasy mieszczą się w promieniu
+function loadBest(ll, R){ const rs = [...new Set(GM.list.filter(d=>distToBox(ll, d) <= R).map(d=>d.code.slice(0,2)))];
+  return Promise.all(rs.map(loadBestFile)); }
 function districtAt(ll){
   const inside = GM.list.filter(d => ll.lat>=d.bbox[0] && ll.lat<=d.bbox[2] && ll.lng>=d.bbox[1] && ll.lng<=d.bbox[3]);
   const pool = inside.length ? inside : GM.list;
@@ -959,7 +983,7 @@ async function findNearby(ll){
   if (!d) return;
   if (!inside && dist > R) toast(`Start poza lasami z mapy. Najbliżej: ${d.name}, ok. ${Math.round(dist/1000)} km.`);
   if (R <= 10000) await focusDistrict(d.code, false);     // blisko: pełne dane lasu, w którym jesteś
-  else { try { await loadBest(); } catch(e){ toast("Brakuje pliku data/best.js. Pokazuję tylko wczytane lasy."); } }
+  else { try { await loadBest(ll, R); } catch(e){ toast("Nie udało się wczytać indeksu najlepszych miejsc. Pokazuję tylko wczytane lasy."); } }
   NEAR = {ll}; renderNearby(true);
 }
 function renderNearby(fit=false){
