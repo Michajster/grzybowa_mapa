@@ -448,6 +448,8 @@ ol.near button:hover{border-color:var(--accent)}
           <h3>Kto za tym stoi?</h3>
           <p>Mapę robię po godzinach, jest darmowa i bez reklam. Jeśli pomogła Ci wrócić z pełnym koszykiem, możesz <a id="supportLink2" href="#" target="_blank" rel="noopener">postawić mi wirtualną kawę</a>. Każda kawa to kolejne nadleśnictwa i nowe funkcje.</p>
         </div>
+        <h3>Czy zbieracie moje dane?</h3>
+        <p>Liczę tylko anonimowe wejścia na stronę i kliknięcia kilku przycisków (GoatCounter, bez ciasteczek i bez śledzenia między stronami), żeby wiedzieć, ile osób korzysta z mapy. Twoja lokalizacja nie opuszcza telefonu: wyszukiwanie w pobliżu liczy się na Twoim urządzeniu.</p>
         <h3>Na ile to pewne?</h3>
         <p>To model, a nie pomiar. Wagi pochodzą z wiedzy o ekologii grzybów i nie zostały jeszcze sprawdzone na prawdziwych zbiorach. Najwięcej da się nauczyć z Twoich wyjść, także tych, z których wrócisz z pustym koszykiem.</p>
       </div>
@@ -460,6 +462,8 @@ ol.near button:hover{border-color:var(--accent)}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- licznik wejść: GoatCounter (anonimowo, bez ciasteczek); panel: https://grzybowamapa.goatcounter.com -->
+<script data-goatcounter="https://grzybowamapa.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 <script>
 const SPECIES_INFO = {
   prawdziwek:{short:"Prawdziwek",name:"Prawdziwek",latin:"Boletus edulis",months:[6,7,8,9,10],peak:[8,9],
@@ -586,6 +590,14 @@ const GM = { _wait:{}, _data:{}, list:[],
     const s=document.createElement("script"); s.src=`data/${code}.js`; s.onerror=()=>rej(new Error("brak pliku danych")); document.head.appendChild(s); }); }
 };
 window.GM = GM;
+// zdarzenia do licznika (bez danych osobowych): które funkcje są używane
+function track(name){ try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({path:"zdarzenie/"+name, title:name, event:true}); } catch(e){} }
+if (document.addEventListener) document.addEventListener("click", e=>{
+  const t = e.target && e.target.closest ? e.target.closest("a,button") : null; if (!t) return;
+  if (t.id === "nearbyBtn") track("szukaj-w-poblizu");
+  else if (t.matches && t.matches(".btn") && t.textContent.trim() === "Prowadź") track("prowadz");
+  else if (t.href && t.href.indexOf("buycoffee.to") >= 0) track("kawa");
+}, true);
 
 const S = {sp:"prawdziwek", moist:"auto", day:"weekend", avoid:false, sel:null, rankN:10, base:"osm", op:55, dist:null};
 function store(k,v){ try{ localStorage.setItem("gm-"+k, JSON.stringify(v)); }catch(e){} }
@@ -1190,7 +1202,7 @@ S.moist=load("moist","auto");
 S.date = load("date", null); if (S.date && S.date < new Date().toLocaleDateString("sv-SE")) S.date = null; S.day=load("day",S.day); S.avoid=load("avoid",false); S.base=load("base",S.base); S.op=load("op",55);
 $("avoid").checked=S.avoid; $("avoid").onchange=e=>{ S.avoid=e.target.checked; store("avoid",S.avoid); recompute(); };
 $("opacity").value=S.op; $("opacity").oninput=e=>{ S.op=+e.target.value; store("op",S.op); recompute(); };
-$("district").onchange=e=>{ if(e.target.value) openDistrict(e.target.value); };
+$("district").onchange=e=>{ if(e.target.value) { track("las/"+dname(e.target.value)); openDistrict(e.target.value); } };
 $("overview").onclick=()=>{ store("dist", null); showOverview(); };
 const ovBan = load("ovBan", true), ovFire = load("ovFire", false);
 $("ovBan").checked = ovBan; $("ovFire").checked = ovFire; setOverlay("ban", ovBan); setOverlay("fire", ovFire); $("fireLegend").hidden = !ovFire;
