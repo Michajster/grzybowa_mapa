@@ -385,7 +385,7 @@ ol.near button:hover{border-color:var(--accent)}
           <input id="mtKey" placeholder="klucz z maptiler.com" aria-label="Klucz MapTiler">
           <button type="submit">Zapisz</button>
         </form>
-        <p class="hint">Z kluczem „Mapa” pokazuje podkład MapTiler Outdoor (szlaki, poziomice). Darmowy plan wystarcza do prywatnego użytku. Puste pole i Zapisz wraca do OpenStreetMap.</p>
+        <p class="hint">„Mapa” korzysta z podkładu MapTiler Outdoor (szlaki, poziomice). Tu możesz wpisać własny klucz zamiast domyślnego. Puste pole i Zapisz wraca do klucza domyślnego.</p>
       </details>
     </section>
 
@@ -597,11 +597,14 @@ function ring(a){ const out=[]; let la=0, lo=0; for(let i=0;i<a.length;i+=2){ la
 // wszystkie obszary na jednej warstwie canvas – osobne warstwy przykrywały się i blokowały kliknięcia
 const map = L.map("map", {zoomControl:true, preferCanvas:true, renderer: L.canvas({padding:0.3, tolerance:3})}).setView([50.95,16.3], 8);
 // Klucz MapTiler (darmowy plan na maptiler.com) wpisuje się w panelu „Podkład mapy”. Bez klucza: OpenStreetMap.
-const MAPTILER_KEY = (()=>{ try { return JSON.parse(localStorage.getItem("gm-maptiler")||'""'); } catch(e){ return ""; } })();
+// Klucz projektu (ograniczony w MapTilerze do domeny michajster.github.io i localhost).
+// Własny klucz wpisany w panelu „Podkład mapy” ma pierwszeństwo.
+const MAPTILER_DEFAULT_KEY = "AqvoyjZkjr2z3PxDmOy6";
+const MAPTILER_KEY = (()=>{ try { return JSON.parse(localStorage.getItem("gm-maptiler")||'""'); } catch(e){ return ""; } })() || MAPTILER_DEFAULT_KEY;
 const OSM = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"});
 const BASES = {
   osm: MAPTILER_KEY
-    ? L.tileLayer(`https://api.maptiler.com/maps/outdoor-v2/256/{z}/{x}/{y}.png?key=${encodeURIComponent(MAPTILER_KEY)}`, {maxZoom:19, attribution:"© MapTiler © OpenStreetMap"})
+    ? L.tileLayer(`https://api.maptiler.com/maps/outdoor-v2/256/{z}/{x}/{y}.png?key=${encodeURIComponent(MAPTILER_KEY)}`, {maxZoom:19, attribution:'<a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>'})
     : OSM,
   topo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {maxZoom:17, subdomains:"abc", attribution:"© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)"}),
   orto: L.tileLayer.wms("https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution", {layers:"Raster", format:"image/jpeg", version:"1.1.1", maxZoom:19, attribution:"Ortofotomapa © GUGiK"}),
