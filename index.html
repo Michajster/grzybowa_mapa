@@ -234,6 +234,10 @@ ol.near button:hover{border-color:var(--accent)}
   .loadbar{top:62px}
   .leaflet-control-attribution{font-size:9px}
   .leaflet-control-zoom{display:none}
+  /* karta wydzielenia zastępuje panel: panel chowa się w całości, karta przewija się od góry do dołu */
+  body.card-open .panel{transform:translateY(100%) !important}
+  body.card-open .legend{display:none}
+  .card{max-height:78%;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .splitter,.paneltog{display:none}
 }
 </style>
@@ -856,14 +860,16 @@ function renderBan(i, st){
 }
 function renderCard(){
   const el=$("card");
-  if(S.sel==null || !feats[S.sel]){ el.hidden=true; return; }
-  const f=feats[S.sel]; el.hidden=false;
+  if(S.sel==null || !feats[S.sel]){ el.hidden=true; document.body.classList.remove("card-open"); return; }
+  const f=feats[S.sel]; el.hidden=false; document.body.classList.add("card-open");
   const mix = f.mix.map(([t,v])=>`${treeName(t)} ${v>=0.1?Math.round(Math.min(v,1)*100)+"%":"domieszka"}`).join(", ");
   const scoreTxt = f._v==null ? `<div class="big" style="color:var(--muted)">—</div><div>Wyłączone: ${f.x}. ${f.x==="rezerwat"?"Zbieranie grzybów w rezerwacie jest zakazane.":f.x==="uprawa / młodnik"?"Do upraw do 4 m wysokości nie wolno wchodzić.":"Wstęp ograniczony."}</div>`
     : `<div class="row"><div><div class="big">${Math.round(f._v)}</div><div class="hint" style="margin:0">ocena 0–100 · lepsze niż ${f._p}% lasu</div></div>${crowdPill(crowdOf(f))}</div>`;
   el.innerHTML = `<button class="x" type="button" aria-label="Zamknij" id="cx">×</button>
     <h3>Oddz. ${f.o}${f.w} · ${SPECIES_INFO[S.sp].short}</h3>
     <div class="hint" style="margin:-4px 0 0">${rangeName(f)} · Nadl. ${dname(f._d)}</div>${scoreTxt}
+    <div class="btns"><a class="btn" href="${navUrl(f.ll)}" target="_blank" rel="noopener">Prowadź</a><a class="btn ghost" href="${mapUrl(f.ll)}" target="_blank" rel="noopener">Google Maps</a></div>
+    <div class="hint" style="margin:0">Autem dojedziesz do drogi publicznej albo parkingu. Dalej pieszo: drogi leśne są zamknięte dla samochodów.</div>
     ${growHtml(f)}
     <div id="dirInfo"></div>
     <div id="banInfo" class="ban ok">Sprawdzam zakazy wstępu…</div>
@@ -875,8 +881,7 @@ function renderCard(){
     <dt>Powierzchnia</dt><dd>${f.ha.toFixed(2)} ha</dd>
     <dt>Do drogi publ.</dt><dd>${f.dr<1000?Math.round(f.dr/50)*50+" m":(f.dr/1000).toFixed(1)+" km"}</dd>
     <dt>GPS</dt><dd><span style="font-family:var(--f-mono);user-select:all">${f.ll[0].toFixed(5)}, ${f.ll[1].toFixed(5)}</span></dd></dl>
-    <div class="btns"><a class="btn" href="${navUrl(f.ll)}" target="_blank" rel="noopener">Prowadź</a><a class="btn ghost" href="${mapUrl(f.ll)}" target="_blank" rel="noopener">Google Maps</a></div>
-    <div class="hint" style="margin:0">Autem dojedziesz do drogi publicznej albo parkingu. Dalej pieszo: drogi leśne są zamknięte dla samochodów.</div>`;
+`;
   $("cx").onclick=()=>{ S.sel=null; renderCard(); highlight(); };
   const cached = banCache.get(uk(f)+f.w); if (cached) renderBan(S.sel, cached);
   renderDir();
