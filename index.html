@@ -1,0 +1,1194 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b3a1f">
+<link rel="icon" type="image/png" sizes="32x32" href="logo-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Grzybowa Mapa Dolnego Śląska</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-height map, field-guide side panel on desktop, bottom sheet on phone */
+:root{
+  --ground:#eef1ec; --panel:#f8faf6; --ink:#1d2a22; --muted:#5d6b61; --line:#cfd8cc;
+  --accent:#8a4b1f; --accent-ink:#fff8f0; --sel:#0e6b8c; --excl:#9aa39a;
+  --r0:#e4e7c9; --r1:#d8cf86; --r2:#c9a24c; --r3:#a8652a; --r4:#6e3412;
+  --f-display:"Zilla Slab", Georgia, serif; --f-body:"Source Sans 3", system-ui, sans-serif; --f-mono:"IBM Plex Mono", ui-monospace, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --ground:#121814; --panel:#18201b; --ink:#e3eadf; --muted:#9aa89d; --line:#2c3830;
+  --accent:#e09a5c; --accent-ink:#1b120a; --sel:#5cc3e6; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.45 var(--f-body);overflow:hidden}
+.app{display:grid;grid-template-columns:380px 1fr;height:100%}
+.panel{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:18px 20px 40px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.mapwrap{position:relative;min-width:0}
+#map{position:absolute;inset:0;background:var(--ground)}
+h1{font:700 26px/1.1 var(--f-display);margin:0;text-wrap:balance}
+h2{font:700 13px/1 var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
+.sub{color:var(--muted);font-size:13px;margin:4px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:600 14px var(--f-body);border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg.two{grid-template-columns:repeat(2,1fr)}
+.seg.four{grid-template-columns:repeat(2,1fr)}
+.seg button{font:600 13px var(--f-body);border:0;background:transparent;color:var(--ink);padding:8px 4px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg.four button:nth-child(3){border-left:0}
+.seg.four button:nth-child(n+3){border-top:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.hint{font-size:13px;color:var(--muted);margin:6px 0 0}
+label.tog{display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;margin-top:10px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.season{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;margin-top:6px}
+.season span{height:18px;border-radius:2px;background:var(--line);font:500 10px/18px var(--f-mono);text-align:center;color:var(--muted)}
+.season span.on{background:var(--r2);color:#2a1606}
+.season span.peak{background:var(--r4);color:#fff8f0}
+.season span.now{outline:2px solid var(--sel);outline-offset:-2px}
+.status{font-weight:700;margin-top:6px}
+.wx-verdict{font:700 17px/1.25 var(--f-display)}
+.wx-verdict small{display:block;font:600 13px var(--f-body);color:var(--muted);margin-top:2px}
+.wx-chart{display:flex;align-items:flex-end;gap:2px;height:64px;margin-top:10px;border-bottom:1px solid var(--line)}
+.wx-chart i{flex:1;background:var(--sel);border-radius:2px 2px 0 0;min-height:1px;position:relative}
+.wx-chart i.fc{background:transparent;border:1px dashed var(--sel);border-bottom:0}
+.wx-chart i.today{outline:2px solid var(--accent);outline-offset:1px}
+.wx-chart i.old{opacity:.45}
+.wx-axis{display:flex;justify-content:space-between;font:500 11px var(--f-mono);color:var(--muted);margin-top:3px}
+ol.rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;counter-reset:r}
+ol.rank li{counter-increment:r}
+ol.rank button{width:100%;display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:8px 10px;cursor:pointer;font:inherit}
+ol.rank button:hover{border-color:var(--accent)}
+ol.rank button::before{content:counter(r);font:500 13px var(--f-mono);color:var(--muted)}
+.rk-name{font-weight:700}
+.rk-meta{font-size:12px;color:var(--muted)}
+.score{font:500 15px var(--f-mono);font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font:600 11px var(--f-body);padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.lo{border-color:#5d8a55;color:#5d8a55}.pill.mid{border-color:#b8862b;color:#b8862b}.pill.hi{border-color:#b5482c;color:#b5482c}
+.more{font:600 13px var(--f-body);background:none;border:0;color:var(--accent);cursor:pointer;padding:6px 0}
+details{border-top:1px solid var(--line);padding-top:12px}
+summary{font:700 15px var(--f-display);cursor:pointer}
+details p,details li{font-size:14px}
+details ul,details ol{padding-left:18px;margin:6px 0}
+.legend{position:absolute;left:10px;bottom:22px;z-index:500;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;display:flex;flex-direction:column;gap:4px;max-width:calc(100% - 20px)}
+.ramp{display:flex;height:10px;border-radius:2px;overflow:hidden;width:180px;max-width:100%}
+.ramp i{flex:1}
+.ramp-l{display:flex;justify-content:space-between;color:var(--muted)}
+.locbtn{position:absolute;right:10px;top:90px;z-index:500;width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.card{position:absolute;right:56px;top:10px;z-index:600;width:300px;max-width:calc(100% - 66px);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:8px}
+.card h3{font:700 20px var(--f-display);margin:0;padding-right:20px}
+.card dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0;font-size:13px}
+.card dt{color:var(--muted)}.card dd{margin:0;min-width:0}
+.big{font:500 30px/1 var(--f-mono);color:var(--accent)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:700 14px var(--f-body);border-radius:8px;padding:8px 12px;text-decoration:none;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.x{position:absolute;right:8px;top:6px;border:0;background:none;color:var(--muted);font-size:22px;cursor:pointer}
+.warn{font-size:12px;color:var(--muted);border-left:3px solid var(--accent);padding-left:8px}
+.toast{position:absolute;left:50%;transform:translateX(-50%);top:10px;z-index:700;background:var(--ink);color:var(--panel);padding:8px 12px;border-radius:8px;font-size:13px;max-width:calc(100% - 20px)}
+.odd-label{font:500 11px var(--f-mono);color:#1d2a22;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;white-space:nowrap;pointer-events:none}
+.leaflet-container{font-family:var(--f-body)}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:58vh 1fr}
+  .panel{border-right:0;border-top:1px solid var(--line);padding:14px 16px 32px;gap:16px}
+  h1{font-size:22px}
+  .card{left:10px;right:56px;width:auto;max-width:none}
+  .legend{bottom:20px}
+}
+
+select{width:100%;font:600 15px var(--f-body);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+.row2{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.linkbtn{font:600 13px var(--f-body);background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+.ban{border:1px solid #b5482c;color:#b5482c;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:600}
+.ban.ok{border-color:var(--line);color:var(--muted);font-weight:400}
+.dist-label{font:700 12px var(--f-display);color:#1d2a22;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 4px #fff;white-space:nowrap;pointer-events:none;text-align:center}
+.overlay-legend{margin-top:8px;max-width:100%}
+.loadbar{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:650;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font:500 13px var(--f-mono)}
+/* zakładki, miniaturki, atlas */
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--line);padding:4px;border-radius:10px}
+.tabs button{font:700 13px var(--f-body);border:0;border-radius:7px;padding:9px 4px;background:transparent;color:var(--ink);cursor:pointer;min-height:40px}
+.tabs button[aria-selected="true"]{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.tabpane{display:flex;flex-direction:column;gap:20px}
+.chip{display:inline-flex;align-items:center;gap:6px}
+.chip .mush{flex:none}
+.mush{display:inline-block;vertical-align:middle}
+.mrow{display:inline-flex;gap:0;margin-right:6px;white-space:nowrap}
+.icons-inline{display:inline-flex;flex-wrap:wrap;margin-top:2px}
+.micons{width:0;height:0}
+.micons .mi{transform:translate(-50%,-50%);display:inline-flex;flex-wrap:wrap;justify-content:center;max-width:120px;padding:2px 4px;border-radius:10px;background:rgba(255,255,255,.82);box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none}
+.micons .mrow{margin:0 2px}
+.grow{display:flex;flex-direction:column;gap:3px;border-top:1px solid var(--line);padding-top:8px}
+.grow .lbl{font:700 12px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.gline{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.why summary{font:600 13px var(--f-body);color:var(--accent);cursor:pointer;padding:4px 0}
+.fx{display:grid;grid-template-columns:110px 1fr 86px;gap:8px;align-items:center;font-size:12px;margin-top:4px}
+.fx i{height:8px;border-radius:4px;background:var(--line);overflow:hidden;display:block}
+.fx b{display:block;height:100%;background:var(--accent);border-radius:4px}
+.fx em{font-style:normal;color:var(--muted);text-align:right}
+.acard{display:grid;grid-template-columns:72px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.acard h3{font:700 18px var(--f-display);margin:0}
+.acard .latin{font-style:italic;color:var(--muted);font-size:13px;margin-bottom:6px}
+.acard p{margin:6px 0 0;font-size:14px}
+.acard .risk{color:var(--muted)}
+.season.mini span{height:14px;font-size:9px;line-height:14px}
+.qa h3{font:700 16px var(--f-display);margin:16px 0 4px}
+.qa h3:first-child{margin-top:0}
+.qa p{margin:0;font-size:14px}
+.steps{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.step{display:flex;align-items:center;gap:6px}
+.step .mrow{min-width:84px}
+/* panel: zwijanie i zmiana szerokości (komputer) */
+.app{grid-template-columns:var(--pw,360px) 6px 1fr}
+.app > .panel{grid-column:1;grid-row:1}
+.splitter{grid-column:2;grid-row:1;cursor:col-resize;background:var(--line);opacity:.5;touch-action:none}
+.splitter:hover,.splitter.drag{opacity:1;background:var(--accent)}
+.app > .mapwrap{grid-column:3;grid-row:1}
+.app.collapsed{grid-template-columns:0 0 1fr}
+.app.collapsed > .panel{visibility:hidden;padding:0;overflow:hidden}
+.app.collapsed > .splitter{display:none}
+.paneltog{position:absolute;left:10px;bottom:auto;top:84px;z-index:500;width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.app.collapsed .paneltog svg{transform:rotate(180deg)}
+.seasonall{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:8px}
+.sa{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center;font-size:12px}
+.sa span{display:inline-flex;align-items:center;gap:4px;min-width:96px}
+.sa i{height:6px;border-radius:3px;background:var(--line);overflow:hidden;display:block}
+.sa b{display:block;height:100%;background:var(--accent)}
+input[type=date]{flex:1;min-width:0;font:600 15px var(--f-body);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+.rangebox{display:flex;flex-direction:column;gap:2px}
+.rangebox .row{font-size:14px}
+.rangebox b{font:600 15px var(--f-mono)}
+.rangebox input{height:28px}
+.ticks{display:flex;justify-content:space-between;font:500 10px var(--f-mono);color:var(--muted)}
+.support{margin:0;font-size:13px}
+.support a{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--line)}
+.support a:hover{color:var(--accent);border-color:var(--accent)}
+.tabs{grid-template-columns:repeat(4,1fr)}
+.tabs button{font-size:12.5px;padding:9px 2px}
+.ctx{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.ctx .linkbtn{padding:2px 8px;font-size:12px}
+header{display:flex;flex-direction:column;gap:8px}
+.coffee{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border-radius:999px;background:#f3e3cf;color:#5a3414;border:1px solid #d9b98f;text-decoration:none;font:700 14px var(--f-body);box-shadow:0 1px 2px rgba(90,52,20,.15);transition:transform .15s, box-shadow .15s}
+.coffee small{font:500 12px var(--f-body);color:#8a6440}
+.coffee:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(90,52,20,.22)}
+@media (prefers-color-scheme: dark){.coffee{background:#3a2a1c;color:#f3d9b8;border-color:#6b4c2e}.coffee small{color:#c9a57c}}
+@media (max-width:760px){
+  header{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .coffee{padding:6px 10px;font-size:13px;flex:none}
+  .coffee small{display:none}
+}
+@media (prefers-reduced-motion:reduce){.coffee{transition:none}}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand .logo{width:48px;height:48px;flex:none;border-radius:11px;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.brand h1{min-width:0}
+@media (max-width:760px){ .brand .logo{width:36px;height:36px;border-radius:8px} .brand{gap:8px} }
+/* tryb terenowy */
+.field{display:flex;flex-direction:column;gap:8px}
+.bigbtn{font:700 16px var(--f-body);border:0;border-radius:10px;padding:12px 14px;background:var(--accent);color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px}
+.bigbtn:disabled{opacity:.6;cursor:progress}
+.search{display:flex;gap:6px}
+.search input{flex:1;min-width:0;font:600 16px var(--f-body);padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+.search button{font:700 15px var(--f-body);border:1px solid var(--ink);background:var(--ink);color:var(--panel);border-radius:8px;padding:0 14px;cursor:pointer;min-height:44px}
+ol.near{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+ol.near button{width:100%;display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:8px 10px;cursor:pointer;font:inherit;min-height:52px}
+ol.near button:hover{border-color:var(--accent)}
+.arrow{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font:600 11px var(--f-mono);color:var(--muted);position:relative}
+.arrow svg{position:absolute;inset:6px;width:24px;height:24px;color:var(--sel)}
+.dir{display:flex;align-items:center;gap:10px;font-weight:700}
+.matches{display:flex;flex-direction:column;gap:4px}
+.matches button{text-align:left;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit;cursor:pointer;min-height:44px}
+.sheet-handle{display:none}
+.me-pin{background:var(--sel);border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+/* telefon: mapa na pełnym ekranie, panel jako wysuwany arkusz */
+@media (max-width:760px){
+  :root{--peek:168px}
+  .app{display:block;height:100%}
+  .mapwrap{position:fixed;inset:0}
+  .panel{position:fixed;left:0;right:0;bottom:0;height:calc(100% - 56px);z-index:800;border:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);
+    padding:0 16px calc(32px + env(safe-area-inset-bottom,0px));transform:translateY(calc(100% - var(--peek)));transition:transform .25s ease;overscroll-behavior:contain;gap:16px}
+  .panel[data-sheet="half"]{transform:translateY(45%)}
+  .panel[data-sheet="full"]{transform:translateY(0)}
+  .panel.dragging{transition:none}
+  .sheet-handle{display:block;position:sticky;top:0;z-index:2;background:var(--panel);margin:0 -16px;padding:10px 0 6px;cursor:grab;touch-action:none}
+  .sheet-handle::before{content:"";display:block;width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
+  header h1{font-size:19px}
+  header .sub{display:none}
+  .card{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;margin:0;max-height:64%;overflow-y:auto;border-radius:16px 16px 0 0;z-index:900;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+  .x{font-size:28px;width:44px;height:44px;right:4px;top:4px}
+  .legend{bottom:calc(var(--peek) + 8px);left:8px;padding:6px 8px}
+  .legend .ramp{width:140px}
+  .locbtn{width:44px;height:44px;top:84px}
+  .chip{padding:10px 14px;font-size:15px}
+  .seg button{min-height:44px;font-size:14px}
+  .btn{padding:12px 14px;font-size:15px}
+  label.tog{min-height:36px}
+  label.tog input{width:20px;height:20px}
+  .loadbar{top:62px}
+  .leaflet-control-attribution{font-size:9px}
+  .leaflet-control-zoom{display:none}
+  .splitter,.paneltog{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="Zmień szerokość panelu" tabindex="0"></div>
+  <main class="mapwrap">
+    <button class="paneltog" type="button" id="panelTog" aria-label="Zwiń panel" title="Zwiń panel (mapa na całą szerokość)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <div id="map" aria-label="Mapa lasów Dolnego Śląska z oceną szansy na grzyby"></div>
+    <button class="locbtn" type="button" id="locate" aria-label="Pokaż moje położenie" title="Gdzie jestem">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+    <div class="legend" id="legend" hidden>
+      <div id="legTitle">Prawdziwek: szansa na tle lasu</div>
+      <div class="ramp" id="ramp"></div>
+      <div class="ramp-l"><span>słabiej</span><span>najlepsze 10%</span></div>
+      <div class="ramp-l" id="legIcons"></div>
+      <div class="ramp-l"><span><i style="display:inline-block;width:10px;height:10px;background:var(--excl);vertical-align:middle"></i> wyłączone</span><span><i style="display:inline-block;width:10px;height:10px;border:2px solid #d0342c;vertical-align:middle"></i> zakaz wstępu</span></div>
+    </div>
+    <div class="loadbar" id="loadbar" hidden>wczytuję las…</div>
+    <div class="card" id="card" hidden></div>
+    <div class="toast" id="toast" hidden></div>
+  </main>
+
+  <aside class="panel" id="panel" data-sheet="peek">
+    <div class="sheet-handle" id="handle" role="button" tabindex="0" aria-label="Rozwiń lub zwiń panel"></div>
+    <header>
+      <div class="brand">
+        <img src="logo-64.png" srcset="logo-64.png 1x, logo-192.png 3x" width="48" height="48" alt="" class="logo">
+        <h1 id="title">Grzybowa mapa Dolnego Śląska</h1>
+      </div>
+      <p class="sub">Szansa na grzyby w każdym wydzieleniu 33 nadleśnictw RDLP Wrocław, z danych Banku Danych o Lasach 2026. Wersja testowa.</p>
+      <a class="coffee" id="supportLine" href="#" target="_blank" rel="noopener" hidden>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 2.5c0 1.5 1 1.5 1 3M12 2.5c0 1.5 1 1.5 1 3"/></svg>
+        <span>Postaw mi kawę</span><small>mapa jest darmowa i bez reklam</small>
+      </a>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Sekcje panelu">
+      <button type="button" role="tab" data-tab="map" aria-selected="true">Las</button>
+      <button type="button" role="tab" data-tab="near" aria-selected="false">W pobliżu</button>
+      <button type="button" role="tab" data-tab="atlas" aria-selected="false">Atlas</button>
+      <button type="button" role="tab" data-tab="about" aria-selected="false">O mapie</button>
+    </nav>
+
+    <div class="tabpane" id="tab-map">
+    <section>
+      <h2>Kiedy iść</h2>
+      <div class="search" style="align-items:center">
+        <label for="planDate" class="hint" style="margin:0;white-space:nowrap">Data wyjścia</label>
+        <input type="date" id="planDate">
+        <button type="button" id="today">Dziś</button>
+      </div>
+      <div class="season" id="season"></div>
+      <div class="status" id="seasonStatus"></div>
+      <div class="seasonall" id="seasonAll"></div>
+    </section>
+
+    <section>
+      <h2>Pogoda w lesie</h2>
+      <div class="wx">
+        <div class="wx-verdict" id="wxVerdict">Wybierz las, a sprawdzę pogodę.</div>
+        <div class="wx-chart" id="wxChart" aria-hidden="true"></div>
+        <div class="wx-axis"><span id="wxFrom"></span><span>dziś</span><span id="wxTo"></span></div>
+        <p class="hint" id="wxText"></p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Las</h2>
+      <select id="district" aria-label="Wybierz nadleśnictwo"><option value="">Wybierz nadleśnictwo…</option></select>
+      <div class="row2">
+        <button type="button" class="linkbtn" id="nearest">Najbliższy las</button>
+        <button type="button" class="linkbtn" id="overview">Wszystkie nadleśnictwa</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Gatunek</h2>
+      <div class="chips" id="species"></div>
+    </section>
+
+    <section id="rankSec" hidden>
+      <h2>Najlepsze oddziały</h2>
+      <ol class="rank" id="rank"></ol>
+      <button class="more" type="button" id="moreBtn">Pokaż więcej oddziałów</button>
+    </section>
+
+
+
+    <section>
+      <h2>Warunki w lesie</h2>
+      <div class="seg four" id="moist">
+        <button type="button" data-v="auto" id="autoBtn">Wg pogody</button>
+        <button type="button" data-v="dry">Sucho</button>
+        <button type="button" data-v="normal">Normalnie</button>
+        <button type="button" data-v="wet">Mokro</button>
+      </div>
+      <p class="hint">„Wg pogody” ustawia tryb z opadów ostatnich 14 dni. Po suchych tygodniach mapa przesuwa się w stronę obniżeń i borów wilgotnych, po długich deszczach w stronę suchych borów i wydm.</p>
+    </section>
+
+    <section>
+      <h2>Ruch ludzi</h2>
+      <div class="seg two" id="day">
+        <button type="button" data-v="work">Dzień roboczy</button>
+        <button type="button" data-v="weekend">Weekend</button>
+      </div>
+      <label class="tog"><input type="checkbox" id="avoid"> Omijaj tłok</label>
+    </section>
+
+    <section>
+      <h2>Zakazy i zagrożenia</h2>
+      <label class="tog" style="margin-top:0"><input type="checkbox" id="ovBan" checked> Okresowe zakazy wstępu do lasu</label>
+      <label class="tog"><input type="checkbox" id="ovFire"> Strefy zagrożenia pożarowego</label>
+      <img class="overlay-legend" id="fireLegend" hidden alt="Legenda stopni zagrożenia pożarowego" src="https://mapserver.bdl.lasy.gov.pl/arcgis/services/WMS_zagrozenie_pozarowe_w_lasach/MapServer/WMSServer?request=GetLegendGraphic&version=1.3.0&format=image/png&layer=0">
+      <p class="hint">Warstwy na żywo z Banku Danych o Lasach. Zakazy wprowadzają nadleśnictwa, np. przy zagrożeniu pożarowym lub wyrębie, i zmieniają się z dnia na dzień. Rezerwaty, ostoje i uprawy są na mapie zawsze wyszarzone.</p>
+    </section>
+
+    <section>
+      <h2>Podkład mapy</h2>
+      <div class="seg four" id="base">
+        <button type="button" data-v="osm">Mapa</button>
+        <button type="button" data-v="topo">Turystyczna</button>
+        <button type="button" data-v="orto">Ortofoto</button>
+        <button type="button" data-v="sat">Satelita</button>
+      </div>
+      <label class="hint" for="opacity" style="display:block;margin-top:10px">Krycie warstwy z oceną</label>
+      <input type="range" id="opacity" min="0" max="100" value="55">
+      <details style="border:0;padding:0;margin-top:6px">
+        <summary class="hint" style="font:600 13px var(--f-body)">Własny klucz MapTiler (opcjonalnie)</summary>
+        <form class="search" id="mtForm" style="margin-top:6px" autocomplete="off">
+          <input id="mtKey" placeholder="klucz z maptiler.com" aria-label="Klucz MapTiler">
+          <button type="submit">Zapisz</button>
+        </form>
+        <p class="hint">Z kluczem „Mapa” pokazuje podkład MapTiler Outdoor (szlaki, poziomice). Darmowy plan wystarcza do prywatnego użytku. Puste pole i Zapisz wraca do OpenStreetMap.</p>
+      </details>
+    </section>
+
+    </div>
+
+    <div class="tabpane" id="tab-near" hidden>
+    <section class="field">
+      <p class="hint" style="margin:0">Szukam najlepszych oddziałów dla wybranego gatunku i daty. Ustawiasz promień, a start może być od Ciebie albo od środka mapy, np. Twojego domu przy planowaniu wypadu.</p>
+      <div class="chips" id="speciesNear"></div>
+      <div class="ctx" id="nearCtx"></div>
+      <button type="button" class="bigbtn" id="nearbyBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        Znajdź najlepsze miejsca
+      </button>
+      <div class="rangebox">
+        <div class="row"><label for="radius">W promieniu</label><b id="radiusVal">3 km</b></div>
+        <input type="range" id="radius" min="0" max="12" step="1" value="2" aria-describedby="radiusVal">
+        <div class="ticks" aria-hidden="true"><span>1</span><span>5</span><span>15</span><span>40</span><span>100 km</span></div>
+      </div>
+      <div class="seg two" id="origin">
+        <button type="button" data-v="me">Od mojej lokalizacji</button>
+        <button type="button" data-v="center">Od środka mapy</button>
+      </div>
+      <ol class="near" id="near"></ol>
+      <p class="hint" id="nearHint" hidden></p>
+      <label class="tog" style="margin-top:0"><input type="checkbox" id="follow"> Śledź moje położenie</label>
+    </section>
+
+    <section>
+      <h2>Oddział ze słupka</h2>
+      <form class="search" id="searchForm" autocomplete="off">
+        <input id="searchInput" inputmode="text" placeholder="np. 123 albo 123b" aria-label="Numer oddziału, opcjonalnie z literą wydzielenia">
+        <button type="submit">Szukaj</button>
+      </form>
+      <div class="matches" id="matches"></div>
+      <p class="hint">Numer oddziału jest na słupku na skrzyżowaniu linii. Litera to wydzielenie w oddziale.</p>
+    </section>
+
+    </div>
+
+    <div class="tabpane" id="tab-atlas" hidden>
+      <p class="hint" style="margin:0">Pięć grzybów, które mapa ocenia. Liczba miniaturek przy wydzieleniu mówi, jak dobre są tam warunki dla danego gatunku: od jednej (słabe) do pięciu (najlepsze).</p>
+      <div id="atlas"></div>
+    </div>
+
+    <div class="tabpane" id="tab-about" hidden>
+      <div class="qa">
+        <h3>Czy mapa wie, gdzie są grzyby?</h3>
+        <p>Nie. Nikt nie liczy grzybów w lesie. Mapa czyta opis każdego kawałka lasu z państwowej inwentaryzacji i szacuje, gdzie warunki dla danego gatunku są najlepsze. Kliknij wydzielenie, a w karcie „Dlaczego taka ocena?” zobaczysz, co ją podnosi, a co obniża.</p>
+        <h3>Co bierze pod uwagę?</h3>
+        <p>Glebę i wilgotność (typ siedliska), drzewa, z którymi dany grzyb żyje w symbiozie, wiek drzew, gęstość koron oraz to, czy miejsce leży na skraju lasu. Do tego pogodę z ostatnich tygodni i porę roku w dniu wyjścia: w szczycie sezonu ocena jest pełna, w zwykłym miesiącu sezonu to ok. 65%, tuż przed i po sezonie ok. 15%, a poza sezonem zero. W trybie „Omijaj tłok” liczy się też odległość od miast, parkingów i dróg.</p>
+        <h3>Jak czytać miniaturki?</h3>
+        <div class="steps" id="iconSteps"></div>
+        <p>Miniaturki widać na mapie po mocnym przybliżeniu i w karcie każdego wydzielenia. Gatunki bez szans nie są pokazywane.</p>
+        <h3>Czemu pogoda zmienia mapę?</h3>
+        <p>Po suszy grzyby trzymają się wilgotnych obniżeń i olsów, po ulewach lepiej idą suche bory na piaskach. Tryb „Wg pogody” liczy opady z 14 dni i przesuwa oceny sam.</p>
+        <h3>Gdzie nie wolno wchodzić?</h3>
+        <p>Do rezerwatów, ostoi zwierząt i upraw leśnych niższych niż 4 m. Te miejsca są szare. Czerwone obszary to okresowe zakazy ogłaszane przez nadleśnictwa, np. przy zagrożeniu pożarowym. W parkach narodowych grzybów nie zbiera się wcale, a tereny wojskowe mają własne zakazy. Mapa obejmuje tylko lasy państwowe.</p>
+        <div id="supportAbout" hidden>
+          <h3>Kto za tym stoi?</h3>
+          <p>Mapę robię po godzinach, jest darmowa i bez reklam. Jeśli pomogła Ci wrócić z pełnym koszykiem, możesz <a id="supportLink2" href="#" target="_blank" rel="noopener">postawić mi wirtualną kawę</a>. Każda kawa to kolejne nadleśnictwa i nowe funkcje.</p>
+        </div>
+        <h3>Na ile to pewne?</h3>
+        <p>To model, a nie pomiar. Wagi pochodzą z wiedzy o ekologii grzybów i nie zostały jeszcze sprawdzone na prawdziwych zbiorach. Najwięcej da się nauczyć z Twoich wyjść, także tych, z których wrócisz z pustym koszykiem.</p>
+      </div>
+    </div>
+
+
+    <p class="warn">Mapa jest poglądowa, korzystasz na własną odpowiedzialność. Nie jedz grzyba bez sprawdzenia przez eksperta, np. w stacji sanitarno-epidemiologicznej.</p>
+    <p class="hint">Źródło danych: Bank Danych o Lasach (BDL), stan na 2026 r., dane wytworzone w czerwcu 2026, pobrane 4.10.2026, przetworzone na potrzeby oceny siedlisk. Zakazy wstępu i zagrożenie pożarowe: usługi WMS BDL. Pogoda: Open-Meteo. Podkłady: © OpenStreetMap, OpenTopoMap, Geoportal (GUGiK), Esri.</p>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const SPECIES_INFO = {
+  prawdziwek:{short:"Prawdziwek",name:"Prawdziwek",latin:"Boletus edulis",months:[6,7,8,9,10],peak:[8,9],
+    text:"Pod sosną, świerkiem, bukiem i dębem, najczęściej w starszych drzewostanach na borach i lasach mieszanych.",
+    risk:"Mylony z goryczakiem żółciowym (gorzki, różowawe pory, siateczka na trzonie ciemniejsza od tła)."},
+  podgrzybek:{short:"Podgrzybek",name:"Podgrzybek brunatny",latin:"Imleria badia",months:[8,9,10,11],peak:[9,10],
+    text:"Najliczniejszy w borach sosnowych i świerkowych, także w młodszych drzewostanach od ok. 30 lat.",
+    risk:"Rurki sinieją po ucisku. To normalne. Unikaj starych, rozmiękłych owocników."},
+  kozlarz:{short:"Koźlarze",name:"Koźlarze",latin:"Leccinum spp.",months:[6,7,8,9,10],peak:[7,8,9],
+    text:"Koźlarz babka rośnie przy brzozach, czerwony przy osikach. Szukaj na skrajach, przy drogach i w wilgotnych miejscach.",
+    risk:"Zawsze dobrze go obgotuj. Surowy lub niedogotowany może zaszkodzić."},
+  kurka:{short:"Kurka",name:"Pieprznik jadalny (kurka)",latin:"Cantharellus cibarius",months:[6,7,8,9,10],peak:[7,8],
+    text:"W jasnych, kwaśnych borach i lasach mieszanych, często w mchu i przy ścieżkach.",
+    risk:"Mylona z lisówką pomarańczową (cienkie, gęste blaszki zamiast listewek)."},
+  maslak:{short:"Maślak",name:"Maślak zwyczajny",latin:"Suillus luteus",months:[7,8,9,10,11],peak:[9,10],
+    text:"Pod młodymi sosnami, od kilku do 30 lat, na skrajach i w jasnych młodnikach.",
+    risk:"Obierz śliską skórkę z kapelusza. U części osób powoduje dolegliwości żołądkowe."}
+};
+// Link do wsparcia (buycoffee.to, suppi.pl, Buy Me a Coffee…). Pusty = przycisk ukryty.
+const DONATE_URL = "https://buycoffee.to/michajster";
+const MONTHS = ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"];
+// Miniaturki grzybów (własne rysunki, viewBox 32x32). Kolory dobrane tak, by gatunki różniły się kształtem i barwą.
+const MUSH = {
+  prawdziwek: `<path d="M12.2 17.5c-.4 3.6-1.6 6.4-1.3 9 .3 2.2 2.6 3.5 5.1 3.5s4.8-1.3 5.1-3.5c.3-2.6-.9-5.4-1.3-9z" fill="#f1e6cc" stroke="#6b5233" stroke-width=".9"/>
+    <path d="M12.6 22.6c1.2.5 2.4.2 3.4-.3m-2.6 3.2c1 .4 2.6.3 3.6-.2m1.4-4.2c-.6.6-1.6.7-2.4.5" stroke="#c9b48c" stroke-width=".7" fill="none"/>
+    <path d="M2.6 17.6C2.4 10.4 8.4 4.8 16 4.8s13.6 5.6 13.4 12.8c-.1 1.2-1.3 1.6-2.5 1.6H5.1c-1.2 0-2.4-.4-2.5-1.6z" fill="#8f5a2a" stroke="#4a2c12" stroke-width=".9"/>
+    <path d="M7 9.8c2.2-2.3 5.4-3.5 8.6-3.5" stroke="#c48a52" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+    <path d="M4.2 17.8h23.6" stroke="#e8d9b0" stroke-width="1.2"/>`,
+  podgrzybek: `<path d="M14 18c-.2 3.4-.8 6.6-.6 9.2.1 1.6 1.2 2.4 2.6 2.4s2.5-.8 2.6-2.4c.2-2.6-.4-5.8-.6-9.2z" fill="#d8bf86" stroke="#6b5233" stroke-width=".9"/>
+    <path d="M14.4 22.5l3.2-.6m-3.3 3.5l3.4-.5" stroke="#b49a5e" stroke-width=".7"/>
+    <path d="M4 18.2c-.3-5.6 5-10 12-10s12.3 4.4 12 10c0 .9-.9 1.3-1.8 1.3H5.8c-.9 0-1.8-.4-1.8-1.3z" fill="#5b3a21" stroke="#2e1b0c" stroke-width=".9"/>
+    <path d="M8.6 12.2c1.8-1.4 4.2-2.1 6.6-2.2" stroke="#8a6040" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+    <path d="M6 19.2h20" stroke="#d6c26e" stroke-width="1.3"/>`,
+  kozlarz: `<path d="M14.1 15c-.3 4.5-.9 9.4-.7 12.6.1 1.5 1.2 2.4 2.6 2.4s2.5-.9 2.6-2.4c.2-3.2-.4-8.1-.7-12.6z" fill="#f5f2ea" stroke="#5a5348" stroke-width=".9"/>
+    <g fill="#3d3a35"><circle cx="15" cy="18" r=".55"/><circle cx="17.2" cy="19.4" r=".55"/><circle cx="15.4" cy="21.6" r=".55"/><circle cx="17.4" cy="23.2" r=".55"/><circle cx="14.8" cy="25" r=".55"/><circle cx="16.9" cy="26.7" r=".55"/><circle cx="15.6" cy="28.2" r=".5"/><circle cx="16.6" cy="16.6" r=".5"/></g>
+    <path d="M6.4 15.4C6.2 9.6 10.4 5.4 16 5.4s9.8 4.2 9.6 10c0 .8-.7 1.2-1.5 1.2H7.9c-.8 0-1.5-.4-1.5-1.2z" fill="#a9743f" stroke="#55361a" stroke-width=".9"/>
+    <path d="M10 9.4c1.4-1.5 3.4-2.4 5.6-2.5" stroke="#cf9f6b" stroke-width="1.3" stroke-linecap="round" fill="none"/>`,
+  kurka: `<path d="M13.6 21.4c.4 2.4.6 4.6.2 6.6-.2 1.2.9 1.9 2.2 1.9s2.4-.7 2.2-1.9c-.4-2 -.2-4.2.2-6.6z" fill="#f0b429" stroke="#9a6a07" stroke-width=".9"/>
+    <path d="M3.4 11.2c1.6-1.6 3.4-1 5-2 1.6.9 3-.6 4.6-.2 1.4-.9 3.4-1 5 0 1.6-.6 3.2.6 4.6.2 1.6 1 3.6.4 5 2-.6 3.8-6.2 8.8-11.6 11.2C9.6 20 4 15 3.4 11.2z" fill="#f6c343" stroke="#9a6a07" stroke-width=".9"/>
+    <path d="M7.4 12.6c2.4 2.6 5 5.4 8.6 8.2m1-9.4c-.2 3.2-.4 6.2-1 9.2m8.8-7.6c-2.4 2.6-5 5.2-7.8 7.6m-7.8-9.4c1.4 3 3.6 5.8 6.6 8.6" stroke="#d49317" stroke-width=".8" fill="none"/>`,
+  maslak: `<path d="M14.2 17.8c-.2 3.6-.7 6.6-.5 9.4.1 1.6 1.1 2.6 2.3 2.6s2.2-1 2.3-2.6c.2-2.8-.3-5.8-.5-9.4z" fill="#f6eec4" stroke="#7a6a1e" stroke-width=".9"/>
+    <path d="M13.3 21.6c1.6.9 3.8.9 5.4 0l.2 1.6c-1.8 1-4 1-5.8 0z" fill="#8a7a6a" stroke="#4a3e30" stroke-width=".6"/>
+    <path d="M3.4 17.6C3.8 11.6 9.2 7.2 16 7.2s12.2 4.4 12.6 10.4c.1.9-.8 1.4-1.8 1.4H5.2c-1 0-1.9-.5-1.8-1.4z" fill="#e2b322" stroke="#7a5a08" stroke-width=".9"/>
+    <path d="M8.2 11.6c2-1.6 4.6-2.6 7.6-2.8M20.8 9.8c.9.3 1.7.7 2.4 1.2" stroke="#fff3b0" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".9"/>`
+};
+function mushSvg(sp, size){ return `<svg class="mush" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true">${MUSH[sp]}</svg>`; }
+
+// ---------- model w przeglądarce: rozbicie oceny na czynniki i liczba miniaturek ----------
+// Te same tabele co w skrypcie przetwarzającym dane (process_all.py).
+const M_SITES = ["BŚW","BMŚW","BMW","LMŚW","LMW","LŚW","LW","LŁ","OL","OLJ","LMB"];
+const M_SITE_MAP = {BS:["BŚW",.8],BW:["BMW",.9],BB:["BMW",.45],BMB:["BMW",.55],BMWYŻ:["BMŚW",1],BMWYŻW:["BMW",1],LMWYŻ:["LMŚW",1],LMWYŻW:["LMW",1],
+  LWYŻ:["LŚW",1],LWYŻŚ:["LŚW",1],LWYŻW:["LW",1],LŁWYŻ:["LŁ",1],OLJWYŻ:["OLJ",1],BGŚW:["BMŚW",.95],BGW:["BMW",.9],BGB:["BMW",.45],BWG:["BMŚW",.55],
+  BMGŚW:["BMŚW",1],BMGW:["BMW",1],BMGB:["BMW",.5],LMG:["LMŚW",1],LMGŚW:["LMŚW",1],LMGW:["LMW",1],LGŚW:["LŚW",1],LGW:["LW",1],LŁG:["LŁ",1],OLJG:["OLJ",1],OLG:["OL",1]};
+const MODEL = {
+  prawdziwek:{site:[.8,1,.6,.9,.55,.6,.35,.15,.05,.05,.1], host:{SO:.9,"ŚW":1,BK:.9,DB:.9,JD:.7,BRZ:.4,GB:.3,MD:.3,"DB.C":.3},
+    age:[[0,.02],[20,.1],[40,.8],[60,1],[120,1],[160,.8]], dens:[[.2,.7],[.4,.85],[.6,1],[.9,.9],[1,.75]], edge:.3},
+  podgrzybek:{site:[1,1,.7,.7,.45,.3,.2,.05,.05,.05,.1], host:{SO:1,"ŚW":.9,BK:.5,DB:.5,MD:.4,JD:.6,BRZ:.2},
+    age:[[0,.02],[15,.1],[30,1],[100,1],[150,.8]], dens:[[.2,.7],[.4,.85],[.6,1],[.9,1],[1,.85]], edge:.3},
+  kozlarz:{site:[.6,.8,.9,.75,.85,.5,.7,.3,.4,.2,.6], host:{BRZ:1,OS:.7,GB:.15},
+    age:[[0,.1],[8,.4],[15,1],[50,1],[80,.75],[120,.5]], dens:[[.2,.9],[.4,1],[.6,1],[.9,.85],[1,.7]], edge:.4},
+  kurka:{site:[1,.95,.6,.75,.5,.45,.3,.1,.05,.05,.1], host:{SO:.9,"ŚW":.8,BK:.9,DB:.8,GB:.5,BRZ:.4,JD:.6},
+    age:[[0,.02],[20,.1],[35,.7],[50,1],[130,1],[170,.85]], dens:[[.2,.8],[.4,1],[.6,1],[.9,.8],[1,.6]], edge:.3},
+  maslak:{site:[1,.8,.4,.5,.25,.2,.1,.05,.05,.05,.05], host:{SO:1,"SO.CZ":.8},
+    age:[[0,.2],[6,.6],[10,1],[30,1],[45,.5],[70,.2]], dens:[[.2,1],[.4,1],[.6,.9],[.9,.7],[1,.55]], edge:.3},
+};
+function interp(pts, x){ if (x<=pts[0][0]) return pts[0][1]; for (let i=1;i<pts.length;i++){ if (x<=pts[i][0]) { const [x0,y0]=pts[i-1],[x1,y1]=pts[i]; return y0+(y1-y0)*(x-x0)/(x1-x0); } } return pts[pts.length-1][1]; }
+function siteKey(code){
+  if (M_SITES.includes(code)) return [code, 1];
+  if (M_SITE_MAP[code]) return M_SITE_MAP[code];
+  const k = Object.keys(M_SITE_MAP).sort((a,b)=>a.length-b.length).find(k=>code && code.length>=3 && k.startsWith(code));
+  return k ? M_SITE_MAP[k] : [null, 0];
+}
+// czynniki 0–1 dla wydzielenia i gatunku (skład drzew z 4 głównych gatunków, więc to przybliżenie oceny z danych)
+function factors(f, sp){
+  const m = MODEL[sp], [sk, sfac] = siteKey(f.site), si = M_SITES.indexOf(sk);
+  const host = Math.min(1, Math.sqrt(f.mix.reduce((s,[t,v])=>s + v*(m.host[t]||0), 0)));
+  return {
+    site: si<0 ? 0 : m.site[si]*sfac,
+    host: 0.08 + 0.92*host,
+    age: interp(m.age, f.age),
+    dens: interp(m.dens, f.dens),
+    edge: Math.min(1, f.edge*2),          // 0–1: jak bardzo wydzielenie leży na skraju
+    edgeBonus: m.edge,
+  };
+}
+function moistFactor(f){ const m = moistMode(); return m==="dry" ? 0.55+0.7*f.wet : m==="wet" ? 1.25-0.7*f.wet : 1; }
+// ---------- pora roku ----------
+// wartość dla miesiąca: szczyt 1, sezon 0,65, miesiąc tuż przed/po sezonie 0,15, poza sezonem 0
+function monthVal(sp, m){
+  const s = SPECIES_INFO[sp];
+  if (s.peak.includes(m)) return 1;
+  if (s.months.includes(m)) return 0.65;
+  const prev = m===1 ? 12 : m-1, next = m===12 ? 1 : m+1;
+  return (s.months.includes(prev) || s.months.includes(next)) ? 0.15 : 0;
+}
+function planDate(){ if (S.date) { const [y,mo,d] = S.date.split("-").map(Number); return new Date(y, mo-1, d); } return new Date(); }
+// płynnie między środkami miesięcy, żeby 31 października i 1 listopada nie różniły się skokowo
+function seasonFactor(sp, d = planDate()){
+  const m = d.getMonth()+1, dim = new Date(d.getFullYear(), m, 0).getDate(), t = (d.getDate()-0.5)/dim;
+  if (t < 0.5) { const pm = m===1?12:m-1, w = 0.5+t; return monthVal(sp,pm)*(1-w) + monthVal(sp,m)*w; }
+  const nm = m===12?1:m+1, w = t-0.5; return monthVal(sp,m)*(1-w) + monthVal(sp,nm)*w;
+}
+function seasonLabel(v){ return v>=0.9 ? "szczyt sezonu" : v>=0.6 ? "dobry czas" : v>=0.3 ? "początek albo koniec sezonu" : v>0.02 ? "pojedyncze owocniki" : "poza sezonem"; }
+// ocena z pogodą i porą roku; season:false = sam las i pogoda (do kolorowania mapy)
+function scoreFor(f, sp, season = true){ return f.x ? null : f.s[sp] * moistFactor(f) * (season ? seasonFactor(sp) : 1); }
+// liczba miniaturek 0–5 dla gatunku
+const ICON_STEPS = [20, 35, 50, 65, 80];
+function iconCount(f, sp){ const s = scoreFor(f, sp); if (s==null) return 0; let n=0; for (const t of ICON_STEPS) if (s>=t) n++; return n; }
+const SP_ORDER = ["prawdziwek","podgrzybek","kozlarz","kurka","maslak"];
+function iconsFor(f){ return SP_ORDER.map(sp=>({sp, n:iconCount(f, sp)})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n); }
+function iconRow(list, size){ return list.map(({sp,n})=>`<span class="mrow" title="${SPECIES_INFO[sp].short}: ${n}/5">${mushSvg(sp,size).repeat(n)}</span>`).join(""); }
+
+const TREE_NAME = {SO:"sosna",ŚW:"świerk",DB:"dąb",BK:"buk",BRZ:"brzoza",OL:"olsza",GB:"grab",MD:"modrzew",JD:"jodła",OS:"osika",LP:"lipa",JS:"jesion",KL:"klon",WZ:"wiąz",AK:"robinia",CZM:"czeremcha",KRU:"kruszyna",JW:"jawor",JRZ:"jarząb",LSZ:"leszczyna",TP:"topola",WB:"wierzba",CZR:"czereśnia"};
+const RAMP = ["#e4e7c9","#d8cf86","#c9a24c","#a8652a","#6e3412"], EXCL = "#9aa39a", SEL = "#0e6b8c";
+const BDL_WMS = "https://mapserver.bdl.lasy.gov.pl/ArcGIS/services/";
+const $ = id => document.getElementById(id);
+
+// ---------- ładowanie danych (zwykłe <script>, działa też z dysku) ----------
+const GM = { _wait:{}, _data:{}, list:[],
+  add(code, d){ this._data[code]=d; (this._wait[code]||[]).forEach(f=>f(d)); delete this._wait[code]; },
+  districts(list){ this.list=list; onDistricts(); },
+  load(code){ return new Promise((res,rej)=>{ if(this._data[code]) return res(this._data[code]);
+    (this._wait[code]=this._wait[code]||[]).push(res);
+    const s=document.createElement("script"); s.src=`data/${code}.js`; s.onerror=()=>rej(new Error("brak pliku danych")); document.head.appendChild(s); }); }
+};
+window.GM = GM;
+
+const S = {sp:"prawdziwek", moist:"auto", day:"weekend", avoid:false, sel:null, rankN:10, base:"osm", op:55, dist:null};
+function store(k,v){ try{ localStorage.setItem("gm-"+k, JSON.stringify(v)); }catch(e){} }
+function load(k,d){ try{ const v=localStorage.getItem("gm-"+k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
+// pierścienie zakodowane różnicowo w 1e-5 stopnia
+function ring(a){ const out=[]; let la=0, lo=0; for(let i=0;i<a.length;i+=2){ la+=a[i]; lo+=a[i+1]; out.push([la/1e5, lo/1e5]); } return out; }
+
+// ---------- mapa ----------
+// wszystkie obszary na jednej warstwie canvas – osobne warstwy przykrywały się i blokowały kliknięcia
+const map = L.map("map", {zoomControl:true, preferCanvas:true, renderer: L.canvas({padding:0.3, tolerance:3})}).setView([50.95,16.3], 8);
+// Klucz MapTiler (darmowy plan na maptiler.com) wpisuje się w panelu „Podkład mapy”. Bez klucza: OpenStreetMap.
+const MAPTILER_KEY = (()=>{ try { return JSON.parse(localStorage.getItem("gm-maptiler")||'""'); } catch(e){ return ""; } })();
+const OSM = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"});
+const BASES = {
+  osm: MAPTILER_KEY
+    ? L.tileLayer(`https://api.maptiler.com/maps/outdoor-v2/256/{z}/{x}/{y}.png?key=${encodeURIComponent(MAPTILER_KEY)}`, {maxZoom:19, attribution:"© MapTiler © OpenStreetMap"})
+    : OSM,
+  topo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {maxZoom:17, subdomains:"abc", attribution:"© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)"}),
+  orto: L.tileLayer.wms("https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution", {layers:"Raster", format:"image/jpeg", version:"1.1.1", maxZoom:19, attribution:"Ortofotomapa © GUGiK"}),
+  sat: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom:19, attribution:"© Esri, Maxar, Earthstar Geographics"})
+};
+let baseLayer = null;
+function setBase(k){ if(baseLayer) map.removeLayer(baseLayer); baseLayer = BASES[k] || BASES.osm; baseLayer.addTo(map); baseLayer.bringToBack(); }
+// gdy podkład seryjnie nie ładuje kafelków (zły klucz, limit, awaria), przełącz na OpenStreetMap
+Object.entries(BASES).forEach(([k, layer])=>{
+  if (layer === OSM) return;
+  let errs = 0; layer.on("tileload", ()=>{ errs = 0; });
+  layer.on("tileerror", ()=>{ if (++errs === 6 && baseLayer === layer) { toast("Ten podkład się nie ładuje. Przełączam na OpenStreetMap."); map.removeLayer(layer); baseLayer = OSM; OSM.addTo(map); OSM.bringToBack(); } });
+});
+
+map.createPane("overlays"); map.getPane("overlays").style.zIndex = 450; map.getPane("overlays").style.pointerEvents = "none";
+const OVERLAYS = {
+  ban: L.tileLayer.wms(BDL_WMS+"WMS_zakazy_wstepu_do_lasu/MapServer/WMSServer", {layers:"3", format:"image/png", transparent:true, version:"1.3.0", pane:"overlays", opacity:.75, attribution:"Zakazy wstępu © BDL"}),
+  fire: L.tileLayer.wms(BDL_WMS+"WMS_zagrozenie_pozarowe_w_lasach/MapServer/WMSServer", {layers:"0", format:"image/png", transparent:true, version:"1.3.0", pane:"overlays", opacity:.5, attribution:"Zagrożenie pożarowe © BDL"})
+};
+function setOverlay(k,on){ if(on) OVERLAYS[k].addTo(map); else map.removeLayer(OVERLAYS[k]); }
+
+const renderer = map.options.renderer;
+// Wczytane nadleśnictwa: wszystkie widoczne na mapie (do MAX_LOADED naraz), łączone w jedną listę wydzieleń.
+let feats=[], comps=[], polys=[], hl=null;
+const LOADED = new Map();      // kod -> {d, data, polys, stand, comp, labels}
+const DMETA = {};              // kod -> meta nadleśnictwa
+const FILLS = {}, NAMES = {};  // podgląd nadleśnictw, które nie są wczytane
+const boundaryLayer = L.layerGroup().addTo(map);
+const MAX_LOADED = 4, MIN_ZOOM_STANDS = 8;
+let syncToken = 0, focusCode = null, focusAt = 0;
+const dBounds = d => L.latLngBounds([[d.bbox[0],d.bbox[1]],[d.bbox[2],d.bbox[3]]]);
+const OUTL = {};   // kod -> pierścienie granicy [[lat,lng],...]
+function inRing(p, r){ let c=false; for(let i=0,j=r.length-1;i<r.length;j=i++){ const a=r[i], b=r[j];
+  if (((a[0]>p.lat)!==(b[0]>p.lat)) && (p.lng < (b[1]-a[1])*(p.lat-a[0])/(b[0]-a[0])+a[1])) c=!c; } return c; }
+// czy granica nadleśnictwa faktycznie wchodzi w widok mapy (a nie tylko jej prostokąt)
+function inView(d, b){
+  if (!b.intersects(dBounds(d))) return false;
+  const rings = OUTL[d.code] || [];
+  for (const r of rings) for (const p of r) if (b.contains(p)) return true;
+  const c = b.getCenter(); return rings.some(r=>inRing(c, r));
+}
+const dname = code => (GM.list.find(d=>d.code===code)||{}).name || "";
+
+function onDistricts(){
+  const sel = $("district");
+  GM.list.slice().sort((a,b)=>a.name.localeCompare(b.name,"pl")).forEach(d=>{ const o=document.createElement("option"); o.value=d.code; o.textContent=`${d.name} (${Math.round(d.ha/1000)} tys. ha)`; sel.appendChild(o); });
+  GM.list.forEach(d=>{
+    const rings = d.outline.map(ring); OUTL[d.code] = rings;
+    FILLS[d.code] = L.polygon(rings, {color:"#2f4a36", weight:1.5, fillColor:"#6e8f5a", fillOpacity:.25}).on("click", ()=>focusDistrict(d.code)).bindTooltip(d.name, {sticky:true});
+    NAMES[d.code] = L.marker(d.center, {interactive:false, icon:L.divIcon({className:"dist-label", html:d.name, iconSize:[120,16], iconAnchor:[60,8]})});
+    boundaryLayer.addLayer(L.polygon(rings, {renderer, fill:false, color:"#2f4a36", weight:2, opacity:.6, dashArray:"6 4", interactive:false}));
+  });
+  map.on("moveend", ()=>{ clearTimeout(onDistricts.t); onDistricts.t = setTimeout(syncView, 150); });
+  const last = load("dist", null);
+  if (last && GM.list.some(d=>d.code===last)) focusDistrict(last);
+  else showOverview();
+}
+function allBounds(){ const b = L.latLngBounds([]); GM.list.forEach(d=>b.extend(dBounds(d))); return b; }
+function showOverview(){ focusCode = null; S.dist = null; $("district").value = ""; map.fitBounds(allBounds(), {padding:[10,10]}); syncView(); }
+
+// które nadleśnictwa są w widoku; najpierw to, w którym jest środek mapy
+function wantedDistricts(){
+  const z = map.getZoom(), fresh = focusCode && Date.now() - focusAt < 4000;   // świeżo wybrany las ładuj zawsze
+  if (z < 7 && !fresh) focusCode = null;
+  const focus = focusCode ? GM.list.find(d=>d.code===focusCode) : null;
+  if (z < MIN_ZOOM_STANDS) return (fresh || (focus && inView(focus, map.getBounds()))) && focus ? [focus] : [];
+  const b = map.getBounds(), c = map.getCenter();
+  const vis = GM.list.filter(d=>inView(d, b))
+    .map(d=>({d, dist: (OUTL[d.code]||[]).some(r=>inRing(c, r)) ? 0 : c.distanceTo(L.latLng(d.center))}))
+    .sort((x,y)=>x.dist-y.dist).map(x=>x.d);
+  if (focus) { const i = vis.indexOf(focus); if (i >= 0) vis.splice(i,1); if (i >= 0 || fresh) vis.unshift(focus); }
+  return vis.slice(0, MAX_LOADED);
+}
+async function syncView(){
+  const tok = ++syncToken, want = wantedDistricts(), codes = want.map(d=>d.code);
+  const missing = want.filter(d=>!LOADED.has(d.code));
+  if (missing.length) {
+    $("loadbar").hidden=false; $("loadbar").textContent = "wczytuję " + missing.map(d=>d.name).join(", ") + "…";
+    try { await Promise.all(missing.map(d=>GM.load(d.code))); }
+    catch(e){ $("loadbar").hidden=true; toast("Nie udało się wczytać danych lasu. Sprawdź, czy folder data jest obok strony."); return; }
+    if (tok !== syncToken) return;   // w międzyczasie mapa się przesunęła
+    $("loadbar").hidden=true;
+  }
+  let changed = false;
+  [...LOADED.keys()].forEach(code=>{ if (!codes.includes(code)) { unloadDistrict(code); changed = true; } });
+  want.forEach(d=>{ if (!LOADED.has(d.code)) { mountDistrict(d, GM._data[d.code]); changed = true; } });
+  GM.list.forEach(d=>{ const on = !LOADED.has(d.code);
+    if (on) { FILLS[d.code].addTo(map); NAMES[d.code].addTo(map); } else { map.removeLayer(FILLS[d.code]); map.removeLayer(NAMES[d.code]); } });
+  if (changed) rebuild();
+  // nadleśnictwo w środku mapy decyduje o pogodzie i liście wyboru
+  const center = want[0] || null;
+  if (center && S.dist !== center.code) { S.dist = center.code; store("dist", center.code); $("district").value = center.code; loadWeather(center); }
+  if (!center && S.dist) { S.dist = null; $("district").value = ""; }
+  updateTitle();
+}
+function mountDistrict(d, data){
+  DMETA[d.code] = data.meta;
+  data.f.forEach(f=>{ f._d = d.code; }); data.comps.forEach(c=>{ c._d = d.code; });
+  const ps = data.f.map(f=>{ const p = L.polygon(f.g.map(ring), {renderer, weight:0.5, color:"#4b5a4e", fillOpacity:.55, opacity:.5});
+    p.on("click", e=>{ L.DomEvent.stopPropagation(e); select(feats.indexOf(f)); }); return p; });
+  const stand = L.layerGroup(ps).addTo(map);
+  const comp = L.layerGroup(data.comps.map(c=>L.polygon(c.g.map(ring), {renderer, fill:false, weight:1.4, color:"#263229", opacity:.8, interactive:false}))).addTo(map);
+  const labels = L.layerGroup(data.comps.map(c=>L.marker(c.ll, {interactive:false, icon:L.divIcon({className:"odd-label", html:c.o, iconSize:null})})));
+  if (map.getZoom() >= 14) labels.addTo(map);
+  LOADED.set(d.code, {d, data, polys:ps, stand, comp, labels});
+}
+function unloadDistrict(code){
+  const L0 = LOADED.get(code); if (!L0) return;
+  [L0.stand, L0.comp, L0.labels].forEach(l=>map.removeLayer(l)); LOADED.delete(code);
+}
+function rebuild(){
+  const prev = S.sel!=null ? feats[S.sel] : null;
+  feats = []; comps = []; polys = [];
+  LOADED.forEach(e=>{ feats.push(...e.data.f); comps.push(...e.data.comps); polys.push(...e.polys); });
+  S.sel = prev ? (feats.indexOf(prev) >= 0 ? feats.indexOf(prev) : null) : null;
+  const has = feats.length > 0;
+  $("legend").hidden = !has; $("rankSec").hidden = !has;
+  if (!has) { ranked = []; renderCard(); highlight(); return; }
+  crowdMax = Math.max(...feats.map(f=>f.crowd))*1.2;
+  recompute();
+}
+function updateTitle(){
+  const names = [...LOADED.values()].map(e=>e.d.name);
+  $("title").textContent = !names.length ? "Grzybowa mapa Dolnego Śląska" : names.length===1 ? "Nadleśnictwo " + names[0] : "Nadleśnictwa: " + names.join(", ");
+  if (!names.length) { $("wxVerdict").textContent = "Przybliż mapę albo wybierz las, a sprawdzę pogodę."; $("wxChart").innerHTML=""; $("wxText").textContent=""; $("wxFrom").textContent=$("wxTo").textContent=""; }
+}
+// wybór lasu z listy, z mapy przeglądowej albo przez lokalizację
+async function focusDistrict(code, fit=true){
+  const d = GM.list.find(x=>x.code===code); if(!d) return;
+  focusCode = code; focusAt = Date.now();
+  if (fit) map.fitBounds(dBounds(d), {padding:[10,10]});
+  await syncView();
+}
+const openDistrict = focusDistrict;
+map.on("zoomend", ()=>{ const z = map.getZoom() >= 14; LOADED.forEach(e=>{ if (z) e.labels.addTo(map); else map.removeLayer(e.labels); }); });
+map.on("click", ()=>{ if(S.sel==null) return; S.sel=null; renderCard(); highlight(); });
+// miniaturki grzybów przy wydzieleniach, po mocnym przybliżeniu
+const iconLayer = L.layerGroup().addTo(map), ICON_ZOOM = 15;
+function drawIcons(){
+  iconLayer.clearLayers();
+  if (map.getZoom() < ICON_ZOOM || !feats.length) return;
+  const b = map.getBounds().pad(0.15), size = map.getZoom() >= 17 ? 16 : map.getZoom() >= 16 ? 13 : 11; let n = 0;
+  for (const f of feats){
+    if (f.x || !b.contains(f.ll)) continue;
+    const list = iconsFor(f); if (!list.length) continue;
+    iconLayer.addLayer(L.marker(f.ll, {interactive:false, keyboard:false, icon:L.divIcon({className:"micons", html:`<div class="mi">${iconRow(list, size)}</div>`, iconSize:null})}));
+    if (++n >= 500) break;
+  }
+}
+map.on("moveend", drawIcons);
+
+// ---------- ocena ----------
+let crowdMax = 1, ranked = [];
+function crowdOf(f){ return Math.min(100, f.crowd * (S.day==="weekend"?1.2:0.8)); }
+function scoreOf(f, season = true){
+  if (f.x) return null;
+  let s = scoreFor(f, S.sp, season);
+  if (S.avoid) s *= 1 - 0.6*Math.pow(crowdOf(f)/crowdMax, 1.5);
+  return s;
+}
+function lowerBound(a,v){ let lo=0,hi=a.length; while(lo<hi){const m=(lo+hi)>>1; if(a[m]<v) lo=m+1; else hi=m;} return lo; }
+function recompute(){
+  if(!feats.length) return;
+  const vals = feats.map(f=>scoreOf(f, false)), sf = seasonFactor(S.sp);
+  const sorted = vals.filter(v=>v!=null).sort((a,b)=>a-b);
+  const q = p => sorted[Math.min(sorted.length-1, Math.floor(p*sorted.length))];
+  const cuts = [q(.5), q(.7), q(.85), q(.9)], op = S.op/100;
+  feats.forEach((f,i)=>{ const v=vals[i]; f._v = v==null ? null : v*sf;
+    f._c = v==null ? -1 : (v>=cuts[3]?4:v>=cuts[2]?3:v>=cuts[1]?2:v>=cuts[0]?1:0);
+    f._p = v==null ? null : Math.round(100*lowerBound(sorted, v)/sorted.length);
+    polys[i].setStyle({fillColor: f._c<0?EXCL:RAMP[f._c], fillOpacity: f._c<0? op*0.6 : op*(0.55+0.45*f._c/4), opacity: op>0.05?0.5:0}); });
+  rankComps(); renderRank(); renderCard(); highlight(); if (NEAR) renderNearby(); drawIcons(); renderNearCtx();
+}
+function rankComps(){
+  const by = new Map();
+  feats.forEach(f=>{ if(f._v==null) return; const key=uk(f); if(!by.has(key)) by.set(key,[]); by.get(key).push(f); });
+  ranked = [];
+  by.forEach((fs,k)=>{ const o = fs[0].o, l = fs[0].l;
+    fs.sort((a,b)=>b._v-a._v);
+    const tot = fs.reduce((s,f)=>s+f.ha,0); if (tot < 3) return;
+    let acc=0, sum=0, w=0;
+    for(const f of fs){ if(acc>=tot/2 && w>0) break; sum+=f._v*f.ha; w+=f.ha; acc+=f.ha; }
+    const dr = fs.reduce((s,f)=>s+f.dr*f.ha,0)/tot, cr = fs.reduce((s,f)=>s+crowdOf(f)*f.ha,0)/tot;
+    ranked.push({k, o, l, v:Math.min(100, (sum/w)*(1+0.15*Math.min(1,dr/1500))), sort:(sum/w)*(1+0.15*Math.min(1,dr/1500)), best:fs[0], tot, cr});
+  });
+  ranked.sort((a,b)=>b.sort-a.sort);
+}
+
+// ---------- UI ----------
+function crowdPill(c){ return c<35?'<span class="pill lo">tłok mały</span>':c<60?'<span class="pill mid">tłok średni</span>':'<span class="pill hi">tłok duży</span>'; }
+function treeName(t){ if (TREE_NAME[t]) return TREE_NAME[t]; for (const m of Object.values(DMETA)) if (m.trees && m.trees[t]) return m.trees[t].toLowerCase(); return t.toLowerCase(); }
+const uk = x => x._d + ":" + x.k;   // oddział jednoznacznie: nadleśnictwo + obręb + numer
+const navUrl = ll => `https://www.google.com/maps/dir/?api=1&destination=${ll[0]},${ll[1]}&travelmode=driving`;
+const mapUrl = ll => `https://www.google.com/maps/search/?api=1&query=${ll[0]},${ll[1]}`;
+function toast(t){ const el=$("toast"); el.textContent=t; el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>el.hidden=true, 4000); }
+
+function renderSpecies(){
+  ["species","speciesNear"].forEach(id=>{ const el=$(id); el.innerHTML="";
+    for(const k of Object.keys(SPECIES_INFO)){ const b=document.createElement("button"); b.className="chip"; b.type="button"; b.innerHTML=mushSvg(k,20)+"<span>"+SPECIES_INFO[k].short+"</span>";
+      b.setAttribute("aria-pressed", k===S.sp); b.onclick=()=>{ S.sp=k; store("sp",k); renderSpecies(); renderSeason(); recompute(); }; el.appendChild(b); } });
+  $("legTitle").textContent = SPECIES_INFO[S.sp].name+": szansa na tle lasu";
+}
+function renderNearCtx(){
+  const d = planDate(), v = seasonFactor(S.sp);
+  $("nearCtx").innerHTML = `${d.toLocaleDateString("pl-PL",{weekday:"long", day:"numeric", month:"long"})} · ${seasonLabel(v)} · warunki: ${MODE_PL[moistMode()].toLowerCase()}${S.avoid?" · omijam tłok":""} <button type="button" class="linkbtn" id="ctxEdit">zmień</button>`;
+  $("ctxEdit").onclick = ()=>document.querySelector('.tabs button[data-tab="map"]').click();
+}
+function renderSeason(){
+  const info=SPECIES_INFO[S.sp], d=planDate(), m=d.getMonth()+1, v=seasonFactor(S.sp);
+  $("season").innerHTML = MONTHS.map((n,i)=>`<span class="${info.peak.includes(i+1)?'peak':info.months.includes(i+1)?'on':''} ${i+1===m?'now':''}">${n}</span>`).join("");
+  $("seasonStatus").textContent = `${info.short}: ${seasonLabel(v)} (${Math.round(v*100)}%) · ${d.toLocaleDateString("pl-PL",{weekday:"long", day:"numeric", month:"long"})}`;
+  $("seasonAll").innerHTML = SP_ORDER.map(sp=>{ const x=seasonFactor(sp, d); return `<div class="sa" title="${seasonLabel(x)}"><span>${mushSvg(sp,16)} ${SPECIES_INFO[sp].short}</span><i><b style="width:${Math.round(x*100)}%"></b></i></div>`; }).join("");
+  $("planDate").value = S.date || d.toLocaleDateString("sv-SE");
+  renderNearCtx();
+}
+function setPlanDate(v){
+  S.date = v || null; store("date", S.date);
+  const d = planDate(), wk = (d.getDay()===0 || d.getDay()===6) ? "weekend" : "work";
+  if (S.day !== wk) { S.day = wk; store("day", wk); segs("day","day",recompute); }
+  renderSeason(); recompute();
+}
+function segs(id,key,after){ $(id).querySelectorAll("button").forEach(b=>{ b.setAttribute("aria-pressed", b.dataset.v===S[key]); b.onclick=()=>{ S[key]=b.dataset.v; store(key,S[key]); segs(id,key,after); after(); }; }); }
+function renderRank(){
+  if (seasonFactor(S.sp) < 0.02) { $("rank").innerHTML = `<li class="hint">${SPECIES_INFO[S.sp].short} w tym terminie nie owocnikuje. Kolory na mapie pokazują tylko, gdzie go szukać w sezonie.</li>`; $("moreBtn").hidden = true; return; }
+  $("moreBtn").hidden = false;
+  $("rank").innerHTML = ranked.slice(0,S.rankN).map(r=>{
+    const top = r.best.mix.slice(0,2).map(([t])=>treeName(t)).join(", ");
+    return `<li><button type="button" data-k="${r.k}"><span><span class="rk-name">Oddział ${r.o}</span> <span class="rk-meta">${rangeName(r.best)}${LOADED.size>1?" · "+dname(r.best._d):""}</span><br><span class="icons-inline">${iconRow(iconsFor(r.best),12)}</span><br><span class="rk-meta">${top} · ${r.tot.toFixed(1)} ha · ${crowdPill(r.cr)}</span></span><span class="score">${Math.round(r.v)}</span></button></li>`; }).join("");
+  $("rank").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    const r = ranked.find(x=>x.k===b.dataset.k); const c = comps.find(c=>uk(c)===r.k);
+    select(feats.indexOf(r.best));
+    if (c) flyToBounds(L.polygon(c.g.map(ring)).getBounds());
+  });
+  $("moreBtn").textContent = S.rankN>=30?"Pokaż mniej":"Pokaż więcej oddziałów";
+}
+$("moreBtn").onclick=()=>{ S.rankN = S.rankN>=30?10:30; renderRank(); };
+
+function highlight(){
+  if(hl){ map.removeLayer(hl); hl=null; }
+  if(S.sel==null || !feats[S.sel]) return;
+  hl = L.polygon(feats[S.sel].g.map(ring), {fill:false, color:SEL, weight:4, interactive:false}).addTo(map);
+}
+function select(i){ S.sel=i; renderCard(); highlight(); checkBan(i); }
+
+// sprawdzenie okresowego zakazu wstępu w punkcie (GetFeatureInfo z BDL)
+const banCache = new Map();
+async function checkBan(i){
+  const f = feats[i]; if(!f) return; const key = uk(f)+f.w;
+  if (banCache.has(key)) { renderBan(i, banCache.get(key)); return; }
+  renderBan(i, "checking");
+  const [la, lo] = f.ll, d = 0.0005;
+  const url = BDL_WMS+"WMS_zakazy_wstepu_do_lasu/MapServer/WMSServer?service=WMS&version=1.3.0&request=GetFeatureInfo&layers=3&query_layers=3&crs=EPSG:4326"
+    + `&bbox=${la-d},${lo-d},${la+d},${lo+d}&width=101&height=101&i=50&j=50&info_format=text/xml&styles=`;
+  try {
+    const r = await fetch(url); const txt = await r.text();
+    const banned = /<FIELDS\b/i.test(txt);
+    banCache.set(key, banned ? "ban" : "ok"); renderBan(i, banned ? "ban" : "ok");
+  } catch(e){ banCache.set(key, "unknown"); renderBan(i, "unknown"); }
+}
+function renderBan(i, st){
+  if (S.sel!==i) return; const el = $("banInfo"); if(!el) return;
+  el.className = "ban" + (st==="ban" ? "" : " ok");
+  el.textContent = st==="ban" ? "Tu obowiązuje okresowy zakaz wstępu do lasu. Nie wchodź." :
+    st==="ok" ? "Brak okresowego zakazu wstępu według BDL (stan na dziś)." :
+    st==="checking" ? "Sprawdzam zakazy wstępu…" : "Nie udało się sprawdzić zakazów. Zobacz warstwę zakazów na mapie.";
+}
+function renderCard(){
+  const el=$("card");
+  if(S.sel==null || !feats[S.sel]){ el.hidden=true; return; }
+  const f=feats[S.sel]; el.hidden=false;
+  const mix = f.mix.map(([t,v])=>`${treeName(t)} ${v>=0.1?Math.round(Math.min(v,1)*100)+"%":"domieszka"}`).join(", ");
+  const scoreTxt = f._v==null ? `<div class="big" style="color:var(--muted)">—</div><div>Wyłączone: ${f.x}. ${f.x==="rezerwat"?"Zbieranie grzybów w rezerwacie jest zakazane.":f.x==="uprawa / młodnik"?"Do upraw do 4 m wysokości nie wolno wchodzić.":"Wstęp ograniczony."}</div>`
+    : `<div class="row"><div><div class="big">${Math.round(f._v)}</div><div class="hint" style="margin:0">ocena 0–100 · lepsze niż ${f._p}% lasu</div></div>${crowdPill(crowdOf(f))}</div>`;
+  el.innerHTML = `<button class="x" type="button" aria-label="Zamknij" id="cx">×</button>
+    <h3>Oddz. ${f.o}${f.w} · ${SPECIES_INFO[S.sp].short}</h3>
+    <div class="hint" style="margin:-4px 0 0">${rangeName(f)} · Nadl. ${dname(f._d)}</div>${scoreTxt}
+    ${growHtml(f)}
+    <div id="dirInfo"></div>
+    <div id="banInfo" class="ban ok">Sprawdzam zakazy wstępu…</div>
+    <dl><dt>Siedlisko</dt><dd>${(DMETA[f._d].sites||{})[f.site]||f.site}</dd>
+    <dt>Drzewostan</dt><dd>${mix||treeName(f.sp)}</dd>
+    <dt>Wiek</dt><dd>${f.age} lat</dd>
+    <dt>Zwarcie</dt><dd>${f.dens.toFixed(1)}</dd>
+    <dt>Skraj lasu</dt><dd>${f.edge>=0.25?"tak":f.edge>0.05?"częściowo":"nie"}</dd>
+    <dt>Powierzchnia</dt><dd>${f.ha.toFixed(2)} ha</dd>
+    <dt>Do drogi publ.</dt><dd>${f.dr<1000?Math.round(f.dr/50)*50+" m":(f.dr/1000).toFixed(1)+" km"}</dd>
+    <dt>GPS</dt><dd><span style="font-family:var(--f-mono);user-select:all">${f.ll[0].toFixed(5)}, ${f.ll[1].toFixed(5)}</span></dd></dl>
+    <div class="btns"><a class="btn" href="${navUrl(f.ll)}" target="_blank" rel="noopener">Prowadź</a><a class="btn ghost" href="${mapUrl(f.ll)}" target="_blank" rel="noopener">Google Maps</a></div>
+    <div class="hint" style="margin:0">Autem dojedziesz do drogi publicznej albo parkingu. Dalej pieszo: drogi leśne są zamknięte dla samochodów.</div>`;
+  $("cx").onclick=()=>{ S.sel=null; renderCard(); highlight(); };
+  const cached = banCache.get(uk(f)+f.w); if (cached) renderBan(S.sel, cached);
+  renderDir();
+}
+function growHtml(f){
+  if (f.x) return "";
+  const list = iconsFor(f);
+  const rows = list.length ? list.map(({sp,n})=>`<div class="gline"><span class="mrow">${mushSvg(sp,18).repeat(n)}</span><span>${SPECIES_INFO[sp].short}</span></div>`).join("")
+    : `<div class="hint" style="margin:0">Żaden z pięciu grzybów nie ma tu dobrych warunków.</div>`;
+  const fx = factors(f, S.sp), mf = moistFactor(f);
+  const bar = (name, v, note) => `<div class="fx"><span>${name}</span><i><b style="width:${Math.round(Math.max(0,Math.min(1,v))*100)}%"></b></i><em>${note}</em></div>`;
+  const lvl = v => v>=.85?"bardzo dobre":v>=.6?"dobre":v>=.35?"średnie":"słabe";
+  const why = `<details class="why"><summary>Dlaczego taka ocena? (${SPECIES_INFO[S.sp].short})</summary>
+    ${bar("Siedlisko", fx.site, lvl(fx.site))}
+    ${bar("Drzewa-partnerzy", fx.host, lvl(fx.host))}
+    ${bar("Wiek drzew", fx.age, f.age+" lat")}
+    ${bar("Gęstość koron", fx.dens, lvl(fx.dens))}
+    ${bar("Pora roku", seasonFactor(S.sp), seasonLabel(seasonFactor(S.sp)))}
+    ${bar("Skraj lasu", fx.edge, fx.edge>0.5?"premia +"+Math.round(fx.edgeBonus*fx.edge*100)+"%":fx.edge>0.1?"mała premia":"brak premii")}
+    <p class="hint" style="margin:6px 0 0">Pogoda: ${mf>1.02?"wzmacnia to miejsce (+"+Math.round((mf-1)*100)+"%)":mf<0.98?"osłabia to miejsce ("+Math.round((mf-1)*100)+"%)":"bez wpływu"}.</p></details>`;
+  return `<div class="grow"><div class="lbl">Co tu rośnie</div>${rows}</div>${why}`;
+}
+function rangeName(x){ const m = x && (DMETA[x._d] || (BEST && BEST[x._d])); const n = m && m.ranges && m.ranges[x.l]; return n ? "Leśn. " + n : ""; }
+
+// ---------- odległość i kierunek ----------
+const DIRS = ["północ","północny wschód","wschód","południowy wschód","południe","południowy zachód","zachód","północny zachód"];
+const DIRS_SHORT = ["N","NE","E","SE","S","SW","W","NW"];
+function bearing(a, b){ // stopnie od północy, z a do b
+  const r = Math.PI/180, la1=a.lat*r, la2=b[0]*r, dl=(b[1]-a.lng)*r;
+  const y = Math.sin(dl)*Math.cos(la2), x = Math.cos(la1)*Math.sin(la2)-Math.sin(la1)*Math.cos(la2)*Math.cos(dl);
+  return (Math.atan2(y,x)/r + 360) % 360;
+}
+const fmtDist = m => m < 950 ? `${Math.round(m/10)*10} m` : `${(m/1000).toFixed(m<9950?1:0).replace(".",",")} km`;
+function arrowSvg(deg){ return `<svg viewBox="0 0 24 24" style="transform:rotate(${deg}deg)"><path d="M12 2l5 14-5-3-5 3z" fill="currentColor"/></svg>`; }
+function dirTo(ll){ if(!myPos) return null; const d = myPos.distanceTo(L.latLng(ll)), b = bearing(myPos, ll), i = Math.round(b/45)%8; return {d, b, txt:DIRS[i], short:DIRS_SHORT[i]}; }
+function renderDir(){
+  const el = $("dirInfo"); if(!el || S.sel==null || !feats[S.sel]) return;
+  const t = dirTo(feats[S.sel].ll);
+  el.innerHTML = t ? `<div class="dir"><span class="arrow">${arrowSvg(t.b)}</span><span>${fmtDist(t.d)} na ${t.txt}</span></div>` : "";
+}
+
+// ---------- tryb terenowy i planer wypadu: najlepsze miejsca w promieniu ----------
+let myPos = null, NEAR = null, pendingNear = false, nearCircle = null, BEST = null;
+const RADII = [1,2,3,5,8,10,15,20,30,40,50,75,100];
+S.ri = Math.max(0, Math.min(RADII.length-1, +load("ri", 2)));
+S.origin = load("origin", "me");
+const radiusKm = () => RADII[S.ri];
+// indeks najlepszych wydzieleń całego regionu, wczytywany przy pierwszym dalszym wyszukiwaniu
+GM.best = obj => { BEST = obj; (GM._bestWait||[]).forEach(f=>f()); GM._bestWait = []; };
+function loadBest(){ return new Promise((res, rej)=>{ if (BEST) return res();
+  if (!GM._bestWait) { GM._bestWait = []; const sc=document.createElement("script"); sc.src="data/best.js"; sc.onerror=()=>rej(new Error("brak indeksu")); document.head.appendChild(sc); }
+  GM._bestWait.push(res); }); }
+function districtAt(ll){
+  const inside = GM.list.filter(d => ll.lat>=d.bbox[0] && ll.lat<=d.bbox[2] && ll.lng>=d.bbox[1] && ll.lng<=d.bbox[3]);
+  const pool = inside.length ? inside : GM.list;
+  let best=null, bd=1e12; pool.forEach(d=>{ const dd = ll.distanceTo(L.latLng(d.center)); if(dd<bd){bd=dd; best=d;} });
+  return {d:best, dist:bd, inside:inside.length>0};
+}
+// odległość punktu od prostokąta nadleśnictwa (0, gdy w środku)
+function distToBox(ll, d){ const lat = Math.max(d.bbox[0], Math.min(d.bbox[2], ll.lat)), lng = Math.max(d.bbox[1], Math.min(d.bbox[3], ll.lng)); return ll.distanceTo(L.latLng(lat, lng)); }
+async function findNearby(ll){
+  const R = radiusKm()*1000, {d, dist, inside} = districtAt(ll);
+  if (!d) return;
+  if (!inside && dist > R) toast(`Start poza lasami z mapy. Najbliżej: ${d.name}, ok. ${Math.round(dist/1000)} km.`);
+  if (R <= 10000) await focusDistrict(d.code, false);     // blisko: pełne dane lasu, w którym jesteś
+  else { try { await loadBest(); } catch(e){ toast("Brakuje pliku data/best.js. Pokazuję tylko wczytane lasy."); } }
+  NEAR = {ll}; renderNearby(true);
+}
+function renderNearby(fit=false){
+  if (!NEAR) return;
+  const R = radiusKm()*1000, ll = NEAR.ll;
+  if (nearCircle) map.removeLayer(nearCircle);
+  nearCircle = L.circle(ll, {radius:R, interactive:false, fill:false, color:SEL, weight:2, dashArray:"6 6", opacity:.8}).addTo(map);
+  // kandydaci: pełne dane wczytanych lasów + indeks najlepszych miejsc z pozostałych
+  let cand = [];
+  feats.forEach(f=>{ if(f._v==null) return; const dd = ll.distanceTo(L.latLng(f.ll)); if (dd<=R) cand.push({f, dd, v:f._v}); });
+  if (BEST && R > 3000) {
+    GM.list.forEach(d=>{ if (LOADED.has(d.code) || !BEST[d.code] || distToBox(ll, d) > R) return;
+      BEST[d.code].rows.forEach(r=>{ const dd = ll.distanceTo(L.latLng(r[0], r[1])); if (dd > R) return;
+        const f = {ll:[r[0],r[1]], o:r[2], w:r[3], k:r[4], l:r[5], s:Object.fromEntries(SP_ORDER.map((sp,i)=>[sp, r[6][i]])), wet:r[7], crowd:r[8], dr:r[9], _d:d.code, x:null, _idx:true};
+        const v = scoreOf(f); if (v!=null) cand.push({f, dd, v}); }); });
+  }
+  let note = "";
+  if (!cand.length) note = `W promieniu ${radiusKm()} km nie znalazłem ocenionego lasu. Zwiększ promień albo przesuń mapę.`;
+  else if (seasonFactor(S.sp) < 0.02) note = `${SPECIES_INFO[S.sp].short} w tym terminie nie owocnikuje. Wybierz inny gatunek albo datę.`;
+  // przy równej (zaokrąglonej) ocenie wygrywa bliższe miejsce
+  cand.sort((a,b)=>(Math.round(b.v)-Math.round(a.v)) || (a.dd-b.dd));
+  const seen = new Set(), top = [];
+  for (const c of cand){ if(seen.has(uk(c.f))) continue; seen.add(uk(c.f)); top.push(c); if(top.length>=8) break; }
+  const far = radiusKm() > 10;
+  $("near").innerHTML = top.map((c,j)=>{ const b = bearing(ll, c.f.ll), i = Math.round(b/45)%8;
+    return `<li><button type="button" data-j="${j}"><span class="arrow">${arrowSvg(b)}</span>
+      <span><b>Oddz. ${c.f.o}${c.f.w}</b> <span class="rk-meta">${rangeName(c.f)}${far||LOADED.size>1?" · "+dname(c.f._d):""}</span><br><span class="icons-inline">${iconRow(iconsFor(c.f),12)}</span><br><span class="rk-meta">${fmtDist(c.dd)} na ${DIRS_SHORT[i]}${far?" (w linii prostej)":""} · ${crowdPill(crowdOf(c.f))}</span></span>
+      <span class="score">${Math.round(Math.min(100,c.v))}</span></button></li>`; }).join("");
+  $("nearHint").hidden = !note; $("nearHint").textContent = note;
+  $("near").querySelectorAll("button").forEach(b=>b.onclick=async ()=>{
+    const c = top[+b.dataset.j];
+    if (c.f._idx) { await focusDistrict(c.f._d, false); }
+    const i = feats.findIndex(f=>f._d===c.f._d && f.k===c.f.k && f.w===c.f.w);
+    if (i >= 0) { select(i); flyToBounds(L.polygon(feats[i].g.map(ring)).getBounds(), 16); }
+    else map.setView(c.f.ll, 15);
+  });
+  if (fit) {
+    const bb = L.latLngBounds([ll]); top.forEach(c=>bb.extend(c.f.ll));
+    if (!top.length) bb.extend(nearCircle.getBounds ? nearCircle.getBounds() : ll);
+    flyToBounds(bb, 15);
+  }
+}
+function showRadius(){ $("radiusVal").textContent = radiusKm() + " km"; $("radius").value = S.ri; }
+$("radius").oninput = e=>{ S.ri = +e.target.value; showRadius(); };
+$("radius").onchange = e=>{ S.ri = +e.target.value; store("ri", S.ri); showRadius(); if (NEAR) findNearby(NEAR.ll); };
+$("nearbyBtn").onclick = ()=>{
+  if (!GM.list.length) return;
+  if (S.origin === "center") { findNearby(map.getCenter()); return; }
+  $("nearbyBtn").disabled = true; pendingNear = true;
+  if (myPos && watching) { pendingNear=false; $("nearbyBtn").disabled=false; findNearby(myPos); return; }
+  map.locate({setView:false, enableHighAccuracy:true, maximumAge:30000, timeout:15000});
+};
+
+// ---------- wyszukiwanie oddziału ----------
+$("searchForm").onsubmit = e=>{
+  e.preventDefault();
+  const m = $("searchInput").value.trim().toLowerCase().match(/^(\d+)\s*([a-ząćęłńóśźż]{0,3})$/);
+  const out = $("matches"); out.innerHTML = "";
+  if (!feats.length) { toast("Najpierw wybierz las albo użyj „Najlepsze miejsca w pobliżu”."); return; }
+  if (!m) { toast("Wpisz numer oddziału, np. 123 albo 123b."); return; }
+  const [, o, w] = m;
+  const cs = comps.filter(c=>c.o===o);
+  if (!cs.length) { out.innerHTML = `<p class="hint">Nie ma oddziału ${o} w lasach widocznych na mapie (${[...LOADED.values()].map(e=>e.d.name).join(", ")}).</p>`; return; }
+  const go = c => {
+    let fi = -1;
+    if (w) fi = feats.findIndex(f=>uk(f)===uk(c) && f.w===w);
+    if (w && fi<0) toast(`Nie znalazłem wydzielenia ${o}${w}. Pokazuję cały oddział.`);
+    if (fi>=0) { select(fi); flyToBounds(L.polygon(feats[fi].g.map(ring)).getBounds(), 17); }
+    else { S.sel=null; renderCard(); if(hl) map.removeLayer(hl); hl = L.polygon(c.g.map(ring), {fill:false, color:SEL, weight:4, interactive:false}).addTo(map); flyToBounds(L.polygon(c.g.map(ring)).getBounds(), 16); }
+  };
+  if (cs.length === 1) { go(cs[0]); return; }
+  // ten sam numer w kilku obrębach: daj wybrać, najbliższy na górze
+  const items = cs.map(c=>({c, t:dirTo(c.ll)})).sort((a,b)=>(a.t?a.t.d:0)-(b.t?b.t.d:0));
+  out.innerHTML = `<p class="hint" style="margin:0">Oddział ${o} jest w ${cs.length} miejscach. Wybierz:</p>` +
+    items.map((x,j)=>`<button type="button" data-j="${j}">Oddz. ${o}${w} · ${rangeName(x.c)||"leśnictwo nieznane"}${LOADED.size>1?" · "+dname(x.c._d):""}${x.t?` · ${fmtDist(x.t.d)}`:""}</button>`).join("");
+  out.querySelectorAll("button").forEach(b=>b.onclick=()=>{ go(items[+b.dataset.j].c); out.innerHTML=""; });
+};
+
+// ---------- panel wysuwany na telefonie ----------
+const mobile = () => window.matchMedia("(max-width:760px)").matches;
+function flyToBounds(bb, maxZoom=16){
+  // na telefonie dolny panel zasłania część mapy, więc zostaw pod nim miejsce
+  const pb = mobile() ? Math.round(window.innerHeight*0.35) : 40;
+  map.fitBounds(bb, {paddingTopLeft:[30,60], paddingBottomRight:[30,pb], maxZoom});
+  if (mobile()) setSheet("peek");
+}
+function setSheet(s){ $("panel").dataset.sheet = s; }
+(function(){
+  const panel = $("panel"), h = $("handle"); let y0=null, t0=0, start=null;
+  const order = ["peek","half","full"];
+  h.addEventListener("click", ()=>{ if (Date.now()-t0<300) return; const i = order.indexOf(panel.dataset.sheet); setSheet(order[(i+1)%3]); });
+  h.addEventListener("pointerdown", e=>{ y0=e.clientY; start=panel.getBoundingClientRect().top; panel.classList.add("dragging"); h.setPointerCapture(e.pointerId); });
+  h.addEventListener("pointermove", e=>{ if(y0==null) return; const dy=e.clientY-y0; const top=Math.max(56, start+dy); panel.style.transform=`translateY(${top-56}px)`; });
+  const end = e=>{ if(y0==null) return; const dy=e.clientY-y0; panel.classList.remove("dragging"); panel.style.transform="";
+    if (Math.abs(dy)>30){ t0=Date.now(); const i=order.indexOf(panel.dataset.sheet); setSheet(order[Math.max(0,Math.min(2, i+(dy<0?1:-1)*(Math.abs(dy)>220?2:1)))]); }
+    y0=null; };
+  h.addEventListener("pointerup", end); h.addEventListener("pointercancel", end);
+  h.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); const i=order.indexOf(panel.dataset.sheet); setSheet(order[(i+1)%3]); } });
+})();
+// zakładki panelu
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", x===b));
+  ["map","near","atlas","about"].forEach(t=>$("tab-"+t).hidden = t!==b.dataset.tab);
+  store("tab", b.dataset.tab);
+  if (mobile() && $("panel").dataset.sheet==="peek") setSheet("half");
+});
+// atlas grzybów
+const TREE_FULL = {SO:"sosna",ŚW:"świerk",BK:"buk",DB:"dąb",JD:"jodła",BRZ:"brzoza",GB:"grab",MD:"modrzew",OS:"osika","SO.CZ":"sosna czarna","DB.C":"dąb czerwony"};
+$("atlas").innerHTML = SP_ORDER.map(sp=>{ const s=SPECIES_INFO[sp], m=MODEL[sp], mon=new Date().getMonth()+1;
+  const trees = Object.entries(m.host).filter(([,v])=>v>=.5).sort((a,b)=>b[1]-a[1]).map(([t])=>TREE_FULL[t]||t).join(", ");
+  return `<article class="acard"><div class="aimg">${mushSvg(sp,64)}</div><div class="atxt">
+    <h3>${s.name}</h3><div class="latin">${s.latin}</div>
+    <div class="season mini">${MONTHS.map((n,i)=>`<span class="${s.peak.includes(i+1)?'peak':s.months.includes(i+1)?'on':''} ${i+1===mon?'now':''}">${n}</span>`).join("")}</div>
+    <p><b>Gdzie:</b> ${s.text}</p><p><b>Drzewa-partnerzy:</b> ${trees}.</p><p class="risk"><b>Uwaga:</b> ${s.risk}</p></div></article>`; }).join("");
+$("iconSteps").innerHTML = [1,2,3,4,5].map(n=>`<div class="step"><span class="mrow">${mushSvg("prawdziwek",16).repeat(n)}</span><span>${["słabe","umiarkowane","dobre","bardzo dobre","najlepsze"][n-1]} warunki (ocena od ${ICON_STEPS[n-1]})</span></div>`).join("");
+$("legIcons").innerHTML = `<span>${mushSvg("prawdziwek",12).repeat(3)} 1–5 miniaturek = szansa (od zoomu ${ICON_ZOOM})</span>`;
+$("ramp").innerHTML = RAMP.map(c=>`<i style="background:${c}"></i>`).join("");
+
+// ---------- pogoda (Open-Meteo) ----------
+let WX = null;
+function moistMode(){ return S.moist==="auto" ? (WX ? WX.mode : "normal") : S.moist; }
+const MODE_PL = {dry:"Sucho", normal:"Normalnie", wet:"Mokro"};
+const fmtDay = iso => { const [y,m,d]=iso.split("-"); return `${+d}.${m}`; };
+function analyzeWeather(daily){
+  const today = new Date().toLocaleDateString("sv-SE", {timeZone:"Europe/Warsaw"});
+  const t = daily.time, P = daily.precipitation_sum.map(v=>v??0), TX = daily.temperature_2m_max, TN = daily.temperature_2m_min;
+  let ti = t.indexOf(today); if (ti<0) ti = t.length-8;
+  const sum = (a,b) => { let s=0; for(let i=Math.max(0,a);i<b;i++) s+=P[i]; return s; };
+  const mean = (arr,a,b) => { let s=0,n=0; for(let i=Math.max(0,a);i<b;i++) if(arr[i]!=null){s+=arr[i];n++;} return n?s/n:null; };
+  const p14 = sum(ti-14, ti), p7 = sum(ti-7, ti), p3 = sum(ti-3, ti), pf = sum(ti, t.length);
+  const tmean7 = (mean(TX,ti-7,ti)+mean(TN,ti-7,ti))/2;
+  let frost = 0; for(let i=ti-7;i<ti;i++) if(TN[i]!=null && TN[i]<0) frost++;
+  let lastRain = null;
+  for(let i=ti-1;i>=Math.max(1,ti-21);i--){ if(P[i]>=10 || P[i]+P[i-1]>=15){ const k = (P[i]>=10 || P[i]>=P[i-1]) ? i : i-1; lastRain = {i:k, mm: Math.max(P[k], P[i]+P[i-1]), ago: ti-k}; break; } }
+  let mode = "normal";
+  if (p14 < 10 && p3 < 5) mode = "dry"; else if (p14 > 40 || p7 > 28) mode = "wet";
+  let verdict, detail;
+  if (frost >= 3) { verdict = "Przymrozki, sezon gaśnie"; detail = `W ostatnim tygodniu ${frost} noce poniżej zera. Szukaj w cieplejszych, osłoniętych miejscach.`; }
+  else if (tmean7 != null && tmean7 < 6) { verdict = "Za zimno na wysyp"; detail = "Średnia temperatura z tygodnia poniżej 6 °C. Grzyby rosną wolno."; }
+  else if (lastRain && lastRain.ago >= 5 && lastRain.ago <= 16) { verdict = "Dobre okno, warto iść"; detail = `Większy deszcz ${lastRain.ago} dni temu (${fmtDay(t[lastRain.i])}, ok. ${Math.round(lastRain.mm)} mm). To typowe opóźnienie przed wysypem.`; }
+  else if (lastRain && lastRain.ago < 5) { verdict = "Grzyby dopiero ruszają"; detail = `Większy deszcz ${lastRain.ago} ${lastRain.ago===1?"dzień":"dni"} temu. Najlepiej za ok. ${7-lastRain.ago}–${14-lastRain.ago} dni.`; }
+  else if (lastRain) { verdict = "Wysyp mija"; detail = `Ostatni większy deszcz ${lastRain.ago} dni temu. Owocniki mogą być już stare albo wysuszone.`; }
+  else { verdict = "Sucho, słabe szanse"; detail = "Brak większego deszczu w ostatnich 3 tygodniach. Szukaj w obniżeniach i przy ciekach."; }
+  if (pf >= 15 && verdict !== "Dobre okno, warto iść") detail += ` W prognozie na 7 dni ok. ${Math.round(pf)} mm deszczu.`;
+  return {mode, verdict, detail, p14, p7, pf, tmean7, ti, t, P};
+}
+function renderWeather(){
+  if (!WX) return;
+  const {t, P, ti} = WX, from = Math.max(0, ti-21), max = Math.max(10, ...P.slice(from));
+  $("wxChart").innerHTML = P.slice(from).map((p,k)=>{ const i=from+k; const cls = i>ti?"fc":i===ti?"today":i<ti-14?"old":"";
+    return `<i class="${cls}" style="height:${Math.max(1, 100*p/max)}%" title="${fmtDay(t[i])}: ${p.toFixed(1)} mm${i>ti?" (prognoza)":""}"></i>`; }).join("");
+  $("wxFrom").textContent = fmtDay(t[from]); $("wxTo").textContent = fmtDay(t[t.length-1]);
+  $("wxVerdict").innerHTML = `${WX.verdict}<small>Tryb wg pogody: ${MODE_PL[WX.mode]}</small>`;
+  $("wxText").textContent = `${WX.detail} Ostatnie 14 dni: ${Math.round(WX.p14)} mm, ostatni tydzień: ${Math.round(WX.p7)} mm, średnio ${WX.tmean7!=null?WX.tmean7.toFixed(0):"?"} °C. Słupki: opady dzienne, przerywane to prognoza. ${WX.stale?"Dane z pamięci, z "+WX.stale+".":"Dane: Open-Meteo."}`;
+  $("autoBtn").textContent = `Wg pogody (${MODE_PL[WX.mode]})`;
+}
+async function loadWeather(d){
+  WX = null; $("wxVerdict").textContent = "Sprawdzam pogodę…"; $("autoBtn").textContent = "Wg pogody";
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${d.center[0]}&longitude=${d.center[1]}&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=21&forecast_days=7&timezone=Europe%2FWarsaw`;
+  const ck = "wx-"+d.code, cached = load(ck, null);
+  if (cached && Date.now()-cached.at < 3*3600e3) { WX = analyzeWeather(cached.daily); }
+  else {
+    try { const r = await fetch(url); if (!r.ok) throw new Error(r.status); const j = await r.json(); store(ck, {at:Date.now(), daily:j.daily}); WX = analyzeWeather(j.daily); }
+    catch(e) {
+      if (cached) { WX = analyzeWeather(cached.daily); WX.stale = new Date(cached.at).toLocaleString("pl-PL",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}); }
+      else { $("wxVerdict").textContent = "Nie udało się pobrać pogody"; $("wxText").textContent = "Sprawdź połączenie z internetem. Do tego czasu ustaw tryb ręcznie."; return; }
+    }
+  }
+  if (S.dist !== d.code) return;
+  renderWeather(); recompute();
+}
+
+// ---------- położenie ----------
+let meCircle = null, meDot = null, wantNearest = false, wantCenter = false, watching = false;
+$("locate").onclick = ()=>{ wantCenter = true; if (myPos && watching) { map.setView(myPos, Math.max(map.getZoom(), 15)); wantCenter=false; return; } map.locate({setView:false, enableHighAccuracy:true, maximumAge:30000}); };
+$("nearest").onclick = ()=>{ wantNearest = true; map.locate({setView:false, enableHighAccuracy:false, maximumAge:60000}); };
+$("follow").onchange = e=>{
+  watching = e.target.checked;
+  if (watching) map.locate({watch:true, setView:false, enableHighAccuracy:true, maximumAge:10000});
+  else map.stopLocate();
+};
+map.on("locationfound", e=>{
+  myPos = e.latlng;
+  if (!meDot) {
+    meCircle = L.circle(myPos,{radius:e.accuracy, weight:1, color:SEL, fillOpacity:.1, interactive:false}).addTo(map);
+    meDot = L.marker(myPos,{interactive:false, keyboard:false, zIndexOffset:1000, icon:L.divIcon({className:"me-pin", iconSize:[18,18]})}).addTo(map);
+  } else { meCircle.setLatLng(myPos).setRadius(e.accuracy); meDot.setLatLng(myPos); }
+  if (wantCenter) { wantCenter=false; map.setView(myPos, Math.max(map.getZoom(), 15)); if (mobile()) setSheet("peek"); }
+  if (wantNearest) { wantNearest = false; const {d, dist} = districtAt(myPos);
+    if (d) { toast(`Najbliżej: ${d.name}, ok. ${Math.round(dist/1000)} km`); openDistrict(d.code); } }
+  if (pendingNear) { pendingNear = false; $("nearbyBtn").disabled = false; findNearby(myPos); }
+  else if (NEAR && watching && S.origin==="me" && myPos.distanceTo(NEAR.ll) > 150) { NEAR.ll = myPos; renderNearby(); }
+  renderDir();
+});
+map.on("locationerror", ()=>{
+  wantNearest = wantCenter = pendingNear = false; $("nearbyBtn").disabled = false;
+  if (watching) { watching=false; $("follow").checked=false; }
+  toast("Nie mam dostępu do położenia. Zezwól przeglądarce na lokalizację. Na komputerze otwieraj mapę przez localhost albo https.");
+});
+
+// ---------- start ----------
+S.sp=load("sp",S.sp); if(!SPECIES_INFO[S.sp]) S.sp="prawdziwek";
+S.moist=load("moist","auto");
+S.date = load("date", null); if (S.date && S.date < new Date().toLocaleDateString("sv-SE")) S.date = null; S.day=load("day",S.day); S.avoid=load("avoid",false); S.base=load("base",S.base); S.op=load("op",55);
+$("avoid").checked=S.avoid; $("avoid").onchange=e=>{ S.avoid=e.target.checked; store("avoid",S.avoid); recompute(); };
+$("opacity").value=S.op; $("opacity").oninput=e=>{ S.op=+e.target.value; store("op",S.op); recompute(); };
+$("district").onchange=e=>{ if(e.target.value) openDistrict(e.target.value); };
+$("overview").onclick=()=>{ store("dist", null); showOverview(); };
+const ovBan = load("ovBan", true), ovFire = load("ovFire", false);
+$("ovBan").checked = ovBan; $("ovFire").checked = ovFire; setOverlay("ban", ovBan); setOverlay("fire", ovFire); $("fireLegend").hidden = !ovFire;
+$("ovBan").onchange = e=>{ store("ovBan", e.target.checked); setOverlay("ban", e.target.checked); };
+$("ovFire").onchange = e=>{ store("ovFire", e.target.checked); setOverlay("fire", e.target.checked); $("fireLegend").hidden = !e.target.checked; };
+setBase(S.base);
+if (DONATE_URL) {
+  $("supportLine").href = $("supportLink2").href = DONATE_URL;
+  $("supportLine").hidden = false; $("supportAbout").hidden = false;
+}
+renderSpecies(); renderSeason();
+{ const t = load("tab", "map"); const btn = document.querySelector(`.tabs button[data-tab="${t}"]`); if (btn && t!=="map") btn.click(); }
+$("planDate").onchange = e=>setPlanDate(e.target.value);
+$("today").onclick = ()=>setPlanDate(null);
+segs("moist","moist",recompute); segs("day","day",recompute); segs("base","base",()=>setBase(S.base));
+showRadius(); segs("origin","origin",()=>{ if (NEAR && S.origin==="center") findNearby(map.getCenter()); });
+$("mtKey").value = MAPTILER_KEY;
+$("mtForm").onsubmit = e=>{ e.preventDefault(); store("maptiler", $("mtKey").value.trim()); store("base","osm"); location.reload(); };
+new ResizeObserver(()=>map.invalidateSize()).observe($("map"));
+// zwijanie panelu i przeciąganie jego krawędzi
+(function(){
+  const app = document.querySelector(".app"), sp = $("splitter");
+  const setW = w => { w = Math.max(280, Math.min(560, Math.round(w))); app.style.setProperty("--pw", w+"px"); return w; };
+  setW(load("pw", 360));
+  const setCollapsed = c => { app.classList.toggle("collapsed", c); store("collapsed", c);
+    $("panelTog").setAttribute("aria-label", c ? "Rozwiń panel" : "Zwiń panel"); $("panelTog").title = c ? "Pokaż panel" : "Zwiń panel (mapa na całą szerokość)";
+    setTimeout(()=>map.invalidateSize(), 50); };
+  setCollapsed(load("collapsed", false));
+  $("panelTog").onclick = ()=>setCollapsed(!app.classList.contains("collapsed"));
+  let drag = false;
+  sp.addEventListener("pointerdown", e=>{ drag = true; sp.classList.add("drag"); sp.setPointerCapture(e.pointerId); });
+  sp.addEventListener("pointermove", e=>{ if (!drag) return; setW(e.clientX - app.getBoundingClientRect().left); map.invalidateSize(); });
+  const end = e=>{ if (!drag) return; drag = false; sp.classList.remove("drag"); store("pw", parseInt(getComputedStyle(app).getPropertyValue("--pw"))); map.invalidateSize(); };
+  sp.addEventListener("pointerup", end); sp.addEventListener("pointercancel", end);
+  sp.addEventListener("dblclick", ()=>{ setW(360); store("pw", 360); map.invalidateSize(); });
+  sp.addEventListener("keydown", e=>{ const cur = parseInt(getComputedStyle(app).getPropertyValue("--pw"))||360;
+    if (e.key==="ArrowLeft") { store("pw", setW(cur-20)); map.invalidateSize(); } if (e.key==="ArrowRight") { store("pw", setW(cur+20)); map.invalidateSize(); } });
+})();
+</script>
+<script src="data/districts.js"></script>
+</body>
+</html>
