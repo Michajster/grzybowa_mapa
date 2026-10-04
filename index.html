@@ -130,10 +130,11 @@ select{width:100%;font:600 15px var(--f-body);padding:8px 10px;border:1px solid 
 .tabpane{display:flex;flex-direction:column;gap:20px}
 .chip{display:inline-flex;align-items:center;gap:6px}
 /* wybór gatunku bezpośrednio na mapie */
-.mapsp{position:absolute;top:10px;left:56px;right:56px;z-index:600;display:flex;gap:6px;justify-content:center;overflow-x:auto;scrollbar-width:none;pointer-events:none;padding:2px}
-.mapsp::-webkit-scrollbar{display:none}
-.mapsp .chip{pointer-events:auto;flex:0 0 auto;background:var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.25);padding:5px 10px 5px 7px;font-size:13px}
-.mapsp .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mapsp{position:absolute;top:10px;left:48px;right:48px;z-index:600;display:flex;gap:4px;justify-content:center;flex-wrap:nowrap;pointer-events:none;padding:2px}
+.mapsp .chip{pointer-events:auto;flex:0 0 auto;background:var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.25);padding:6px;font-size:13px;gap:5px;min-height:34px}
+.mapsp .chip span{display:none}
+.mapsp .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);padding:6px 11px 6px 7px}
+.mapsp .chip[aria-pressed="true"] span{display:inline;white-space:nowrap}
 .chip .mush{flex:none}
 .mush{display:inline-block;vertical-align:middle}
 .mrow{display:inline-flex;gap:0;margin-right:6px;white-space:nowrap}
@@ -248,10 +249,8 @@ ol.near button:hover{border-color:var(--accent)}
   .legend .ramp{width:140px}
   .locbtn{width:44px;height:44px;top:84px}
   .chip{padding:10px 14px;font-size:15px}
-  .mapsp{justify-content:flex-start;left:52px;right:52px}
-  .mapsp .chip{padding:7px 10px 7px 7px;font-size:13px}
-  .mapsp .chip span{display:none}
-  .mapsp .chip[aria-pressed="true"] span{display:inline}
+  .mapsp .chip{padding:6px;font-size:13px}
+  .mapsp .chip[aria-pressed="true"]{padding:6px 11px 6px 7px}
   .seg button{min-height:44px;font-size:14px}
   .btn{padding:12px 14px;font-size:15px}
   label.tog{min-height:36px}
