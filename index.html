@@ -343,11 +343,6 @@ ol.near button:hover{border-color:var(--accent)}
       </div>
     </section>
 
-    <section>
-      <h2>Gatunek</h2>
-      <div class="chips" id="species"></div>
-    </section>
-
     <section id="rankSec" hidden>
       <h2>Najlepsze oddziały</h2>
       <ol class="rank" id="rank"></ol>
@@ -408,8 +403,7 @@ ol.near button:hover{border-color:var(--accent)}
 
     <div class="tabpane" id="tab-near" hidden>
     <section class="field">
-      <p class="hint" style="margin:0">Szukam najlepszych oddziałów dla wybranego gatunku i daty. Ustawiasz promień, a start może być od Ciebie albo od środka mapy, np. Twojego domu przy planowaniu wypadu.</p>
-      <div class="chips" id="speciesNear"></div>
+      <p class="hint" style="margin:0">Szukam najlepszych oddziałów dla gatunku wybranego ikonką nad mapą i dla daty wyjścia. Ustawiasz promień, a start może być od Ciebie albo od środka mapy, np. Twojego domu przy planowaniu wypadu.</p>
       <div class="ctx" id="nearCtx"></div>
       <button type="button" class="bigbtn" id="nearbyBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
@@ -452,7 +446,7 @@ ol.near button:hover{border-color:var(--accent)}
 
         <h3>Trzy kroki</h3>
         <ol class="howto">
-          <li><b>Wybierz termin i gatunek.</b> Kalendarz u góry panelu przelicza mapę na dzień, w którym jedziesz.</li>
+          <li><b>Wybierz gatunek i termin.</b> Gatunek zmieniasz ikonkami nad mapą, a kalendarz w panelu przelicza ją na dzień, w którym jedziesz.</li>
           <li><b>Znajdź miejsce.</b> Kolory pokazują najlepsze fragmenty lasu, a zakładka „W pobliżu” robi ranking w wybranym promieniu.</li>
           <li><b>Sprawdź kartę i jedź.</b> Karta wydzielenia mówi, co tam rośnie i skąd taka ocena, a „Prowadź” otwiera nawigację.</li>
         </ol>
@@ -871,19 +865,19 @@ function toast(t){ const el=$("toast"); el.textContent=t; el.hidden=false; clear
 
 function setSpecies(k, from){
   if (k === S.sp) return;
-  S.sp=k; store("sp",k); renderSpecies(); renderSeason(); recompute();
+  S.sp=k; store("sp",k); renderSpecies(); renderSeason(); renderNearCtx(); recompute();
   if (NEAR) renderNearby();
   if (from === "mapSpecies") track("gatunek-z-mapy/"+k);
 }
 function renderSpecies(){
-  ["species","speciesNear","mapSpecies"].forEach(id=>{ const el=$(id); el.innerHTML="";
+  ["mapSpecies"].forEach(id=>{ const el=$(id); el.innerHTML="";
     for(const k of Object.keys(SPECIES_INFO)){ const b=document.createElement("button"); b.className="chip"; b.type="button"; b.innerHTML=mushSvg(k,20)+"<span>"+SPECIES_INFO[k].short+"</span>";
       b.title = SPECIES_INFO[k].name; b.setAttribute("aria-pressed", k===S.sp); b.onclick=()=>setSpecies(k, id); el.appendChild(b); } });
   $("legTitle").textContent = SPECIES_INFO[S.sp].name+": szansa na tle lasu";
 }
 function renderNearCtx(){
   const d = planDate(), v = seasonFactor(S.sp);
-  $("nearCtx").innerHTML = `${d.toLocaleDateString("pl-PL",{weekday:"long", day:"numeric", month:"long"})} · ${seasonLabel(v)} · warunki: ${MODE_PL[moistMode()].toLowerCase()}${S.avoid?" · omijam tłok":""} <button type="button" class="linkbtn" id="ctxEdit">zmień</button>`;
+  $("nearCtx").innerHTML = `<b>${SPECIES_INFO[S.sp].short}</b> · ${d.toLocaleDateString("pl-PL",{weekday:"long", day:"numeric", month:"long"})} · ${seasonLabel(v)} · warunki: ${MODE_PL[moistMode()].toLowerCase()}${S.avoid?" · omijam tłok":""} <button type="button" class="linkbtn" id="ctxEdit">zmień</button>`;
   $("ctxEdit").onclick = ()=>document.querySelector('.tabs button[data-tab="map"]').click();
 }
 function renderSeason(){
