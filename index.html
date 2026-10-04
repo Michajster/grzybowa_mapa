@@ -150,6 +150,12 @@ select{width:100%;font:600 15px var(--f-body);padding:8px 10px;border:1px solid 
 .acard p{margin:6px 0 0;font-size:14px}
 .acard .risk{color:var(--muted)}
 .season.mini span{height:14px;font-size:9px;line-height:14px}
+.about h3{font:700 15px var(--f-display);margin:18px 0 6px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+.about .lead{font-size:15px;margin:0 0 4px;line-height:1.45}
+.about p{margin:0;font-size:14px}
+.howto{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.factors{margin:0;padding:0;list-style:none;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.factors li{padding-left:12px;border-left:2px solid var(--line, rgba(127,127,127,.35))}
 .qa h3{font:700 16px var(--f-display);margin:16px 0 4px}
 .qa h3:first-child{margin-top:0}
 .qa p{margin:0;font-size:14px}
@@ -432,32 +438,54 @@ ol.near button:hover{border-color:var(--accent)}
     </div>
 
     <div class="tabpane" id="tab-about" hidden>
-      <div class="qa">
-        <h3>Czy mapa wie, gdzie są grzyby?</h3>
-        <p>Nie. Nikt nie liczy grzybów w lesie. Mapa czyta opis każdego kawałka lasu z państwowej inwentaryzacji i szacuje, gdzie warunki dla danego gatunku są najlepsze. Kliknij wydzielenie, a w karcie „Dlaczego taka ocena?” zobaczysz, co ją podnosi, a co obniża.</p>
-        <h3>Co bierze pod uwagę?</h3>
-        <p>Glebę i wilgotność (typ siedliska), drzewa, z którymi dany grzyb żyje w symbiozie, wiek drzew, gęstość koron oraz to, czy miejsce leży na skraju lasu. Do tego pogodę z ostatnich tygodni i porę roku w dniu wyjścia: w szczycie sezonu ocena jest pełna, w zwykłym miesiącu sezonu to ok. 65%, tuż przed i po sezonie ok. 15%, a poza sezonem zero. W trybie „Omijaj tłok” liczy się też odległość od miast, parkingów i dróg.</p>
-        <h3>Jak czytać miniaturki?</h3>
+      <div class="about">
+        <p class="lead">Grzybowa Mapa to ściąga przed wyjazdem do lasu: podpowiada, w którym wydzieleniu warto zacząć szukać, a gdzie szkoda czasu. Nie zna położenia żadnego grzyba, zna za to las.</p>
+
+        <h3>Trzy kroki</h3>
+        <ol class="howto">
+          <li><b>Wybierz termin i gatunek.</b> Kalendarz u góry panelu przelicza mapę na dzień, w którym jedziesz.</li>
+          <li><b>Znajdź miejsce.</b> Kolory pokazują najlepsze fragmenty lasu, a zakładka „W pobliżu” robi ranking w wybranym promieniu.</li>
+          <li><b>Sprawdź kartę i jedź.</b> Karta wydzielenia mówi, co tam rośnie i skąd taka ocena, a „Prowadź” otwiera nawigację.</li>
+        </ol>
+
+        <h3>Z czego powstaje ocena</h3>
+        <ul class="factors">
+          <li><b>Siedlisko</b> – żyzność i wilgotność gleby z leśnej inwentaryzacji.</li>
+          <li><b>Partnerzy</b> – grzyby wymienione na mapie żyją w symbiozie z konkretnymi drzewami: prawdziwek z sosną, świerkiem i bukiem, koźlarz z brzozą, maślak z sosną.</li>
+          <li><b>Wiek i zwarcie</b> – młodniki i bardzo gęste drzewostany wypadają słabiej niż dojrzały, przewiewny las.</li>
+          <li><b>Brzeg lasu</b> – wydzielenia przy drogach, polanach i zrębach dostają niewielki bonus.</li>
+          <li><b>Kalendarz</b> – w szczytowym miesiącu gatunek liczy się w pełni, w pozostałych miesiącach sezonu w ok. 65%, na obrzeżach sezonu w ok. 15%.</li>
+          <li><b>Deszcz</b> – opady z ostatnich dwóch tygodni przesuwają szanse: w suszę w stronę wilgotnych lasów, po ulewach w stronę suchych borów.</li>
+          <li><b>Tłok (opcjonalnie)</b> – po włączeniu „Omijaj tłok” mapa obniża miejsca blisko miast, parkingów i szlaków.</li>
+        </ul>
+
+        <h3>Ikonki grzybów</h3>
         <div class="steps" id="iconSteps"></div>
-        <p>Miniaturki widać na mapie po mocnym przybliżeniu i w karcie każdego wydzielenia. Gatunki bez szans nie są pokazywane.</p>
-        <h3>Czemu pogoda zmienia mapę?</h3>
-        <p>Po suszy grzyby trzymają się wilgotnych obniżeń i olsów, po ulewach lepiej idą suche bory na piaskach. Tryb „Wg pogody” liczy opady z 14 dni i przesuwa oceny sam.</p>
-        <h3>Gdzie nie wolno wchodzić?</h3>
-        <p>Do rezerwatów, ostoi zwierząt i upraw leśnych niższych niż 4 m. Te miejsca są szare. Czerwone obszary to okresowe zakazy ogłaszane przez nadleśnictwa, np. przy zagrożeniu pożarowym. W parkach narodowych grzybów nie zbiera się wcale, a tereny wojskowe mają własne zakazy. Mapa obejmuje tylko lasy państwowe.</p>
+        <p>Pojawiają się na mapie po dużym przybliżeniu i w karcie wydzielenia. Gatunek bez szans w danym miejscu nie dostaje ikonki.</p>
+
+        <h3>Zasady w lesie</h3>
+        <ul class="factors">
+          <li><b>Szare pola</b> – rezerwaty, ostoje zwierząt i uprawy do 4 m wysokości. Tam nie wchodzimy.</li>
+          <li><b>Czerwona warstwa „Zakazy”</b> – czasowe zakazy wstępu ogłaszane przez nadleśnictwa, np. w czasie suszy.</li>
+          <li><b>Parki narodowe i poligony</b> – mają własne regulaminy; mapa pokazuje wyłącznie lasy w zarządzie Lasów Państwowych.</li>
+        </ul>
+
+        <h3>Prywatność</h3>
+        <p>Strona zlicza anonimowe odsłony i użycie kilku przycisków w GoatCounter – bez ciasteczek i bez śledzenia między serwisami. Twoja pozycja GPS służy tylko do obliczeń w przeglądarce i nigdzie nie jest wysyłana.</p>
+
         <div id="supportAbout" hidden>
-          <h3>Kto za tym stoi?</h3>
-          <p>Mapę robię po godzinach, jest darmowa i bez reklam. Jeśli pomogła Ci wrócić z pełnym koszykiem, możesz <a id="supportLink2" href="#" target="_blank" rel="noopener">postawić mi wirtualną kawę</a>. Każda kawa to kolejne nadleśnictwa i nowe funkcje.</p>
+          <h3>Autor</h3>
+          <p>Mapę rozwijam sam, w wolnym czasie, bez reklam i opłat. Jeśli chcesz pomóc w dalszej pracy, <a id="supportLink2" href="#" target="_blank" rel="noopener">wirtualna kawa</a> bardzo się przyda.</p>
         </div>
-        <h3>Czy zbieracie moje dane?</h3>
-        <p>Liczę tylko anonimowe wejścia na stronę i kliknięcia kilku przycisków (GoatCounter, bez ciasteczek i bez śledzenia między stronami), żeby wiedzieć, ile osób korzysta z mapy. Twoja lokalizacja nie opuszcza telefonu: wyszukiwanie w pobliżu liczy się na Twoim urządzeniu.</p>
-        <h3>Na ile to pewne?</h3>
-        <p>To model, a nie pomiar. Wagi pochodzą z wiedzy o ekologii grzybów i nie zostały jeszcze sprawdzone na prawdziwych zbiorach. Najwięcej da się nauczyć z Twoich wyjść, także tych, z których wrócisz z pustym koszykiem.</p>
+
+        <h3>Ograniczenia</h3>
+        <p>Ocena to wynik modelu opartego na literaturze o ekologii grzybów, a nie zapis prawdziwych zbiorów. Bywa, że w „słabym” lesie rośnie najwięcej. Daj znać, jak było – każda relacja z lasu pomaga poprawić wagi.</p>
       </div>
     </div>
 
 
-    <p class="warn">Mapa jest poglądowa, korzystasz na własną odpowiedzialność. Nie jedz grzyba bez sprawdzenia przez eksperta, np. w stacji sanitarno-epidemiologicznej.</p>
-    <p class="hint">Źródło danych: Bank Danych o Lasach (BDL), stan na 2026 r., dane wytworzone w czerwcu 2026, pobrane 4.10.2026, przetworzone na potrzeby oceny siedlisk. Zakazy wstępu i zagrożenie pożarowe: usługi WMS BDL. Pogoda: Open-Meteo. Podkłady: © OpenStreetMap, OpenTopoMap, Geoportal (GUGiK), Esri.</p>
+    <p class="warn">Mapa ma charakter informacyjny i nie zastępuje rozsądku w lesie. Każdy niepewny okaz pokaż grzyboznawcy, np. w punkcie konsultacyjnym sanepidu.</p>
+    <p class="hint">Dane: Bank Danych o Lasach (BDL), stan na 2026 r. (wytworzone w czerwcu 2026, pobrane 4.10.2026), przetworzone na potrzeby oceny siedlisk. Zakazy i zagrożenie pożarowe: usługi WMS BDL. Pogoda: Open-Meteo. Mapy podkładowe: © OpenStreetMap, MapTiler, OpenTopoMap, Geoportal (GUGiK), Esri.</p>
   </aside>
 </div>
 
