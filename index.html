@@ -9,8 +9,8 @@
 <meta property="og:locale" content="pl_PL">
 <meta property="og:title" content="Grzybowa mapa">
 <meta property="og:description" content="Gdzie dziś na grzyby? Szansa dla każdego kawałka lasu państwowego w Polsce, z pogodą i porą roku. Za darmo, bez reklam.">
-<meta property="og:url" content="https://michajster.github.io/grzybowa_mapa/">
-<meta property="og:image" content="https://michajster.github.io/grzybowa_mapa/og.png">
+<meta property="og:url" content="https://grzybowamapa.com.pl/">
+<meta property="og:image" content="https://grzybowamapa.com.pl/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
@@ -704,7 +704,7 @@ function unpack(d){
 // wszystkie obszary na jednej warstwie canvas – osobne warstwy przykrywały się i blokowały kliknięcia
 const map = L.map("map", {zoomControl:true, preferCanvas:true, renderer: L.canvas({padding:0.3, tolerance:3})}).setView([52.0,19.3], 6);
 // Klucz MapTiler (darmowy plan na maptiler.com) wpisuje się w panelu „Podkład mapy”. Bez klucza: OpenStreetMap.
-// Klucz projektu (ograniczony w MapTilerze do domeny michajster.github.io i localhost).
+// Klucz projektu (ograniczony w MapTilerze do domen grzybowamapa.com.pl, michajster.github.io i localhost).
 // Własny klucz wpisany w panelu „Podkład mapy” ma pierwszeństwo.
 const MAPTILER_DEFAULT_KEY = "AqvoyjZkjr2z3PxDmOy6";
 const MAPTILER_KEY = (()=>{ try { return JSON.parse(localStorage.getItem("gm-maptiler")||'""'); } catch(e){ return ""; } })() || MAPTILER_DEFAULT_KEY;
