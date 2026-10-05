@@ -237,6 +237,9 @@ ol.near button:hover{border-color:var(--accent)}
 .park{font-size:13px;margin-top:6px}
 .outlist .rk{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 15px var(--f-display);color:#fff}
 .outlist .sc{font:700 16px var(--f-mono)}
+.outnear{align-items:center;margin-top:6px}
+.outnear select{width:auto;flex:none}
+.outlist .km{font:600 12px var(--f-mono);color:var(--muted)}
 .scrim{display:none}
 @media (max-width:760px){ .scrim{display:block} }
 .menubtn{display:none;position:absolute;left:8px;top:10px;z-index:650;height:38px;padding:0 12px 0 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 14px var(--f-body);align-items:center;gap:6px;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:pointer}
@@ -368,8 +371,18 @@ ol.near button:hover{border-color:var(--accent)}
     </section>
 
     <section id="outSec">
-      <h2>Gdzie jechać w całej Polsce</h2>
-      <p class="hint" id="outHint" style="margin:0 0 6px">Liczę szanse dla wszystkich nadleśnictw…</p>
+      <h2>Gdzie jechać</h2>
+      <div class="seg" id="outScope" role="group" aria-label="Zakres rankingu">
+        <button type="button" data-v="all">Cała Polska</button>
+        <button type="button" data-v="view">Widok mapy</button>
+        <button type="button" data-v="near">Blisko mnie</button>
+      </div>
+      <div class="row2 outnear" id="outNearRow" hidden>
+        <label for="outR">W promieniu</label>
+        <select id="outR"><option value="30">30 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="150">150 km</option><option value="250">250 km</option></select>
+        <span class="hint" id="outOrigin" style="margin:0"></span>
+      </div>
+      <p class="hint" id="outHint" style="margin:6px 0">Liczę szanse dla wszystkich nadleśnictw…</p>
       <ol class="near outlist" id="outList"></ol>
     </section>
 
@@ -768,7 +781,7 @@ function onDistricts(){
     boundaryLayer.addLayer(L.polygon(rings, {renderer, fill:false, color:"#2f4a36", weight:2, opacity:.6, dashArray:"6 4", interactive:false}));
   });
   map.on("moveend", ()=>{ clearTimeout(onDistricts.t); onDistricts.t = setTimeout(syncView, 150); });
-  loadOutlook();
+  initOutlookControls(); loadOutlook();
   const last = load("dist", null);
   if (last && GM.list.some(d=>d.code===last)) focusDistrict(last);
   else showOverview();
@@ -982,6 +995,20 @@ function renderSeason(){
 
 // ---------- mapa wysypu: szanse dla wszystkich nadleśnictw na dzień wyjścia ----------
 let OUT = null;   // {time:[...], d:{kod:[P[], TX[], TN[]]}}
+let outOrigin = null;   // punkt startu do liczenia odległości (pozycja użytkownika)
+S.outScope = load("outScope", "all"); S.outR = load("outR", 100);
+function locateForOutlook(){
+  if (myPos) { outOrigin = myPos; renderOutlook(); return; }
+  if (!navigator.geolocation) { toast("Ta przeglądarka nie udostępnia lokalizacji."); return; }
+  navigator.geolocation.getCurrentPosition(p=>{ outOrigin = L.latLng(p.coords.latitude, p.coords.longitude); renderOutlook(); },
+    ()=>{ toast("Nie mam dostępu do lokalizacji. Zezwól na nią w przeglądarce albo wybierz „Widok mapy”."); }, {enableHighAccuracy:false, timeout:15000, maximumAge:300000});
+}
+function initOutlookControls(){
+  segs("outScope", "outScope", ()=>{ track("top10-zakres/"+S.outScope); if (S.outScope === "near" && !outOrigin) locateForOutlook(); renderOutlook(); });
+  $("outR").value = String(S.outR); $("outR").onchange = e=>{ S.outR = +e.target.value; store("outR", S.outR); renderOutlook(); };
+  map.on("moveend", ()=>{ if (S.outScope === "view") { clearTimeout(initOutlookControls.t); initOutlookControls.t = setTimeout(renderOutlook, 200); } });
+  if (S.outScope === "near") locateForOutlook();
+}
 async function loadOutlook(){
   const ck = "outlook", c = load(ck, null);
   if (c && Date.now() - c.at < 3*3600e3) { OUT = c; renderOutlook(); return; }
@@ -1026,14 +1053,25 @@ function renderOutlook(){
   $("outLegTitle").textContent = `${SPECIES_INFO[S.sp].short}: szanse · ${dl}`;
   $("outRamp").innerHTML = RAMP.map(c=>`<i style="background:${c}"></i>`).join("");
   $("outLegend").hidden = LOADED.size !== 0;
+  // zakres listy: cała Polska / to, co widać na mapie / w promieniu od użytkownika
+  const scope = S.outScope, org = outOrigin, Rkm = +S.outR;
+  $("outNearRow").hidden = scope !== "near";
+  $("outOrigin").textContent = scope === "near" ? (org ? "od Twojej lokalizacji" : "ustalam Twoją lokalizację…") : "";
+  if (org) O.res.forEach(r=>r.km = org.distanceTo(L.latLng(r.d.center)) / 1000);
+  let list = O.res;
+  if (scope === "view") { const bb = map.getBounds(); list = list.filter(r=>inView(r.d, bb)); }
+  if (scope === "near") list = org ? list.filter(r=>r.km <= Rkm) : [];
   if (O.sf < 0.02) { $("outHint").textContent = `${SPECIES_INFO[S.sp].short} w tym terminie nie owocnikuje. Wybierz inny gatunek albo datę.`; $("outList").innerHTML = ""; return; }
+  const where = scope === "view" ? "w widoku mapy" : scope === "near" ? `do ${Rkm} km od Ciebie` : "w całej Polsce";
   $("outHint").textContent = (O.beyond ? "Data poza zasięgiem prognozy (7 dni), liczę z najdalszego dostępnego dnia. " : "") +
-    `Najlepsze nadleśnictwa na ${dl}: deszcz z ostatnich tygodni × ile lasu sprzyja gatunkowi. Kolory widać po oddaleniu mapy.`;
-  $("outList").innerHTML = O.res.slice(0, 10).map((r,j)=>{
+    (scope === "near" && !org ? "Potrzebuję Twojej lokalizacji, żeby policzyć odległości." :
+     !list.length ? `Brak nadleśnictw ${where}. Przesuń mapę albo zwiększ promień.` :
+     `Najlepsze nadleśnictwa ${where} na ${dl}: deszcz z ostatnich tygodni × ile lasu sprzyja gatunkowi. Odległości w linii prostej.`);
+  $("outList").innerHTML = list.slice(0, 10).map((r,j)=>{
     const why = r.ago ? `większy deszcz ${r.ago} dni wcześniej` : (r.B < 8 ? "mało deszczu" : "drobne opady");
     return `<li><button type="button" data-c="${r.d.code}"><span class="rk" style="background:${outColor(r.n)};color:${r.n<0.6?"#1d2a22":"#fff"}">${j+1}</span>
       <span><span class="rk-name">${r.d.name}</span><br><span class="rk-meta">RDLP ${r.d.r||""} · ${why} · ${r.q}% lasu sprzyja</span></span>
-      <span class="sc">${Math.round(r.n*100)}</span></button></li>`; }).join("");
+      <span style="text-align:right"><span class="sc">${Math.round(r.n*100)}</span>${r.km!=null?`<br><span class="km">${r.km<10?r.km.toFixed(1).replace(".",","):Math.round(r.km)} km</span>`:""}</span></button></li>`; }).join("");
   $("outList").querySelectorAll("button").forEach(b=>b.onclick=()=>{ track("top10/"+b.dataset.c); if (mobile()) setSheet("peek"); focusDistrict(b.dataset.c); });
 }
 function setPlanDate(v){
@@ -1387,7 +1425,7 @@ $("follow").onchange = e=>{
   else map.stopLocate();
 };
 map.on("locationfound", e=>{
-  myPos = e.latlng;
+  myPos = e.latlng; if (!outOrigin || outOrigin.distanceTo(myPos) > 2000) { outOrigin = myPos; if (OUT) renderOutlook(); }
   if (!meDot) {
     meCircle = L.circle(myPos,{radius:e.accuracy, weight:1, color:SEL, fillOpacity:.1, interactive:false}).addTo(map);
     meDot = L.marker(myPos,{interactive:false, keyboard:false, zIndexOffset:1000, icon:L.divIcon({className:"me-pin", iconSize:[18,18]})}).addTo(map);
