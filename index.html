@@ -228,6 +228,7 @@ ol.near button:hover{border-color:var(--accent)}
 .matches{display:flex;flex-direction:column;gap:4px}
 .matches button{text-align:left;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit;cursor:pointer;min-height:44px}
 .sheet-handle{display:none}
+.toast{top:58px}
 .carbtn{top:136px}
 .carbtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .carbox{position:absolute;right:56px;top:136px;z-index:660;width:min(300px,calc(100vw - 80px));background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:14px}
@@ -264,6 +265,11 @@ ol.near button:hover{border-color:var(--accent)}
   .locbtn{width:44px;height:44px;top:84px}
   .carbtn{top:136px}
   .carbox{top:136px;right:62px}
+  .toast{top:auto;bottom:calc(96px + env(safe-area-inset-bottom,0px));text-align:center;width:max-content}
+  header{flex-wrap:wrap;row-gap:8px}
+  header .brand{flex:1 1 calc(100% - 56px)}
+  header .drawer-x{order:2}
+  header .coffee{order:3}
   .chip{padding:10px 14px;font-size:15px}
   .mapsp .chip{padding:6px;font-size:13px}
   .mapsp .chip[aria-pressed="true"]{padding:6px 11px 6px 7px}
@@ -1028,7 +1034,7 @@ function renderOutlook(){
     return `<li><button type="button" data-c="${r.d.code}"><span class="rk" style="background:${outColor(r.n)};color:${r.n<0.6?"#1d2a22":"#fff"}">${j+1}</span>
       <span><span class="rk-name">${r.d.name}</span><br><span class="rk-meta">RDLP ${r.d.r||""} · ${why} · ${r.q}% lasu sprzyja</span></span>
       <span class="sc">${Math.round(r.n*100)}</span></button></li>`; }).join("");
-  $("outList").querySelectorAll("button").forEach(b=>b.onclick=()=>{ track("top10/"+b.dataset.c); focusDistrict(b.dataset.c); });
+  $("outList").querySelectorAll("button").forEach(b=>b.onclick=()=>{ track("top10/"+b.dataset.c); if (mobile()) setSheet("peek"); focusDistrict(b.dataset.c); });
 }
 function setPlanDate(v){
   S.date = v || null; store("date", S.date);
