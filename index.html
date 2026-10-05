@@ -193,8 +193,8 @@ input[type=date]{flex:1;min-width:0;font:600 15px var(--f-body);padding:8px 10px
 .support{margin:0;font-size:13px}
 .support a{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--line)}
 .support a:hover{color:var(--accent);border-color:var(--accent)}
-.tabs{grid-template-columns:repeat(4,1fr)}
-.tabs button{font-size:12.5px;padding:9px 2px}
+.tabs{grid-template-columns:repeat(5,1fr)}
+.tabs button{font-size:12px;padding:7px 2px;line-height:1.15}
 .ctx{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .ctx .linkbtn{padding:2px 8px;font-size:12px}
 header{display:flex;flex-direction:column;gap:8px}
@@ -352,6 +352,7 @@ ol.near button:hover{border-color:var(--accent)}
 
     <nav class="tabs" role="tablist" aria-label="Sekcje panelu">
       <button type="button" role="tab" data-tab="map" aria-selected="true">Las</button>
+      <button type="button" role="tab" data-tab="trip" aria-selected="false">Gdzie jechać</button>
       <button type="button" role="tab" data-tab="near" aria-selected="false">W pobliżu</button>
       <button type="button" role="tab" data-tab="atlas" aria-selected="false">Atlas</button>
       <button type="button" role="tab" data-tab="about" aria-selected="false">O mapie</button>
@@ -370,21 +371,6 @@ ol.near button:hover{border-color:var(--accent)}
       <div class="seasonall" id="seasonAll"></div>
     </section>
 
-    <section id="outSec">
-      <h2>Gdzie jechać</h2>
-      <div class="seg" id="outScope" role="group" aria-label="Zakres rankingu">
-        <button type="button" data-v="all">Cała Polska</button>
-        <button type="button" data-v="view">Widok mapy</button>
-        <button type="button" data-v="near">Blisko mnie</button>
-      </div>
-      <div class="row2 outnear" id="outNearRow" hidden>
-        <label for="outR">W promieniu</label>
-        <select id="outR"><option value="30">30 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="150">150 km</option><option value="250">250 km</option></select>
-        <span class="hint" id="outOrigin" style="margin:0"></span>
-      </div>
-      <p class="hint" id="outHint" style="margin:6px 0">Liczę szanse dla wszystkich nadleśnictw…</p>
-      <ol class="near outlist" id="outList"></ol>
-    </section>
 
     <section>
       <h2>Pogoda w lesie</h2>
@@ -463,6 +449,24 @@ ol.near button:hover{border-color:var(--accent)}
 
     </div>
 
+    <div class="tabpane" id="tab-trip" hidden>
+    <section id="outSec">
+      <h2>Najlepsze nadleśnictwa</h2>
+      <div class="seg" id="outScope" role="group" aria-label="Zakres rankingu">
+        <button type="button" data-v="all">Cała Polska</button>
+        <button type="button" data-v="view">Widok mapy</button>
+        <button type="button" data-v="near">Blisko mnie</button>
+      </div>
+      <div class="row2 outnear" id="outNearRow" hidden>
+        <label for="outR">W promieniu</label>
+        <select id="outR"><option value="30">30 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="150">150 km</option><option value="250">250 km</option></select>
+        <span class="hint" id="outOrigin" style="margin:0"></span>
+      </div>
+      <p class="hint" id="outHint" style="margin:6px 0">Liczę szanse dla wszystkich nadleśnictw…</p>
+      <ol class="near outlist" id="outList"></ol>
+    </section>
+    </div>
+
     <div class="tabpane" id="tab-near" hidden>
     <section class="field">
       <p class="hint" style="margin:0">Szukam najlepszych oddziałów dla gatunku wybranego ikonką nad mapą i dla daty wyjścia. Ustawiasz promień, a start może być od Ciebie albo od środka mapy, np. Twojego domu przy planowaniu wypadu.</p>
@@ -509,7 +513,7 @@ ol.near button:hover{border-color:var(--accent)}
         <h3>Trzy kroki</h3>
         <ol class="howto">
           <li><b>Wybierz gatunek i termin.</b> Gatunek zmieniasz ikonkami nad mapą, a kalendarz w panelu przelicza ją na dzień, w którym jedziesz.</li>
-          <li><b>Znajdź miejsce.</b> Kolory pokazują najlepsze fragmenty lasu, a zakładka „W pobliżu” robi ranking w wybranym promieniu.</li>
+          <li><b>Znajdź miejsce.</b> Zakładka „Gdzie jechać” wskazuje najlepsze nadleśnictwa w Polsce albo blisko Ciebie, kolory na mapie – najlepsze fragmenty lasu, a „W pobliżu” robi ranking konkretnych wydzieleń w wybranym promieniu.</li>
           <li><b>Sprawdź kartę i jedź.</b> Karta wydzielenia mówi, co tam rośnie i skąd taka ocena, pokazuje najbliższy parking leśny, a „Prowadź” otwiera nawigację. Po zaparkowaniu stuknij ikonkę auta na mapie – w lesie ta sama ikonka wskaże drogę powrotną.</li>
         </ol>
 
@@ -1330,7 +1334,7 @@ function setSheet(s){
 // zakładki panelu
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", x===b));
-  ["map","near","atlas","about"].forEach(t=>$("tab-"+t).hidden = t!==b.dataset.tab);
+  ["map","trip","near","atlas","about"].forEach(t=>$("tab-"+t).hidden = t!==b.dataset.tab);
   store("tab", b.dataset.tab);
 
 });
