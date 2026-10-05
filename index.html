@@ -237,6 +237,8 @@ ol.near button:hover{border-color:var(--accent)}
 .park{font-size:13px;margin-top:6px}
 .outlist .rk{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 15px var(--f-display);color:#fff}
 .outlist .sc{font:700 16px var(--f-mono)}
+.ow{display:inline-block;font:700 12px var(--f-body);padding:3px 8px;border-radius:999px;white-space:nowrap;background:var(--line);color:var(--ink)}
+.ow4{background:#2e7d32;color:#fff}.ow3{background:#7cb342;color:#14210f}.ow2{background:#d4c24a;color:#2a2410}.ow1{background:#d9a35b;color:#2a1c0c}.ow0{background:var(--line);color:var(--muted)}
 .dbox{margin:4px 0 8px 12px;padding:8px 0 4px 12px;border-left:3px solid var(--accent);display:flex;flex-direction:column;gap:4px}
 .dsub{font:700 12px var(--f-body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px}
 .drow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;text-align:left;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit}
@@ -1073,6 +1075,8 @@ function outlookScores(){
   const top = Math.max(1e-6, ...res.map(r=>r.v)); res.forEach(r=>r.n = r.v/top);
   return {res: res.sort((a,b)=>b.v-a.v), beyond, sf, day};
 }
+// słowna ocena warunków w nadleśnictwie (skala bezwzględna, żeby nie mylić z oceną 0–100 oddziałów)
+function outWord(v){ return v >= .55 ? ["bardzo dobre",4] : v >= .4 ? ["dobre",3] : v >= .25 ? ["przeciętne",2] : v >= .12 ? ["słabe",1] : ["kiepskie",0]; }
 function outColor(n){ const i = Math.min(RAMP.length-1, Math.floor(n * RAMP.length)); return RAMP[i]; }
 function renderOutlook(){
   if (!GM.list || !GM.list.length) return;
@@ -1095,12 +1099,12 @@ function renderOutlook(){
   $("outHint").textContent = (O.beyond ? "Data poza zasięgiem prognozy (7 dni), liczę z najdalszego dostępnego dnia. " : "") +
     (scope === "near" && !org ? "Potrzebuję Twojej lokalizacji, żeby policzyć odległości." :
      !list.length ? `Brak nadleśnictw ${where}. Przesuń mapę albo zwiększ promień.` :
-     `Najlepsze nadleśnictwa ${where} na ${dl}: deszcz z ostatnich tygodni × ile lasu sprzyja gatunkowi. Odległość w linii prostej do granicy nadleśnictwa.`);
+     `Najlepsze nadleśnictwa ${where} na ${dl}: deszcz z ostatnich tygodni × ile lasu sprzyja gatunkowi. Odległość w linii prostej do granicy nadleśnictwa. Stuknij nadleśnictwo, żeby zobaczyć oceny 0–100 jego najlepszych oddziałów.`);
   $("outList").innerHTML = list.slice(0, 10).map((r,j)=>{
     const why = r.ago ? `większy deszcz ${r.ago} dni wcześniej` : (r.B < 8 ? "mało deszczu" : "drobne opady");
     return `<li><button type="button" data-c="${r.d.code}"><span class="rk" style="background:${outColor(r.n)};color:${r.n<0.6?"#1d2a22":"#fff"}">${j+1}</span>
       <span><span class="rk-name">${r.d.name}</span><br><span class="rk-meta">RDLP ${r.d.r||""} · ${why} · ${r.q}% lasu sprzyja</span></span>
-      <span style="text-align:right"><span class="sc">${Math.round(r.n*100)}</span>${r.km!=null?`<br><span class="km">${r.km<0.05?"tu jesteś":(r.km<10?r.km.toFixed(1).replace(".",","):Math.round(r.km))+" km"}</span>`:""}</span></button>${outOpen===r.d.code?`<div class="dbox" data-x="${r.d.code}"><p class="hint" style="margin:0">Wczytuję oddziały…</p></div>`:""}</li>`; }).join("");
+      <span style="text-align:right"><span class="ow ow${outWord(r.v)[1]}">${outWord(r.v)[0]}</span>${r.km!=null?`<br><span class="km">${r.km<0.05?"tu jesteś":(r.km<10?r.km.toFixed(1).replace(".",","):Math.round(r.km))+" km"}</span>`:""}</span></button>${outOpen===r.d.code?`<div class="dbox" data-x="${r.d.code}"><p class="hint" style="margin:0">Wczytuję oddziały…</p></div>`:""}</li>`; }).join("");
   $("outList").querySelectorAll("button[data-c]").forEach(b=>b.onclick=()=>{ const c = b.dataset.c;
     outOpen = outOpen === c ? null : c; if (outOpen) track("top10/"+c); renderOutlook(); });
   if (outOpen) { const box = $("outList").querySelector(`[data-x="${outOpen}"]`); if (box) fillDistrictBox(outOpen, box); }
