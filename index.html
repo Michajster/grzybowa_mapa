@@ -237,6 +237,10 @@ ol.near button:hover{border-color:var(--accent)}
 .park{font-size:13px;margin-top:6px}
 .outlist .rk{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 15px var(--f-display);color:#fff}
 .outlist .sc{font:700 16px var(--f-mono)}
+.ticks.abs{position:relative;height:14px;display:block}
+.ticks.abs span{position:absolute;top:0;transform:translateX(-50%)}
+.ticks.abs span:first-child{transform:none}
+.ticks.abs span:last-child{transform:none}
 .outnear{align-items:center;margin-top:6px}
 .outnear select{width:auto;flex:none}
 .outlist .km,.rank .km{font:600 12px var(--f-mono);color:var(--muted)}
@@ -377,36 +381,16 @@ ol.near button:hover{border-color:var(--accent)}
         <button type="button" data-v="view">Widok mapy</button>
         <button type="button" data-v="near">Blisko mnie</button>
       </div>
-      <div class="row2 outnear" id="outNearRow" hidden>
-        <label for="outR">W promieniu</label>
-        <select id="outR"><option value="30">30 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="150">150 km</option><option value="250">250 km</option></select>
+      <div class="rangebox" id="outNearRow" style="margin-top:8px" hidden>
+        <div class="row"><label for="radius">W promieniu od Ciebie</label><b id="radiusVal">50 km</b></div>
+        <input type="range" id="radius" min="0" max="15" step="1" value="10" aria-describedby="radiusVal">
+        <div class="ticks abs" aria-hidden="true"><span style="left:0">1</span><span style="left:33.3%">10</span><span style="left:60%">40</span><span style="left:80%">100</span><span style="right:0">300 km</span></div>
         <span class="hint" id="outOrigin" style="margin:0"></span>
       </div>
       <p class="hint" id="outHint" style="margin:6px 0">Liczę szanse dla wszystkich nadleśnictw…</p>
       <ol class="near outlist" id="outList"></ol>
     </section>
 
-    <section class="field">
-      <h2>Najlepsze miejsca w pobliżu</h2>
-      <p class="hint" style="margin:0">Szukam najlepszych oddziałów dla gatunku wybranego ikonką nad mapą i dla daty wyjścia. Ustawiasz promień, a start może być od Ciebie albo od środka mapy, np. Twojego domu przy planowaniu wypadu.</p>
-      <div class="ctx" id="nearCtx"></div>
-      <button type="button" class="bigbtn" id="nearbyBtn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-        Znajdź najlepsze miejsca
-      </button>
-      <div class="rangebox">
-        <div class="row"><label for="radius">W promieniu</label><b id="radiusVal">3 km</b></div>
-        <input type="range" id="radius" min="0" max="12" step="1" value="2" aria-describedby="radiusVal">
-        <div class="ticks" aria-hidden="true"><span>1</span><span>5</span><span>15</span><span>40</span><span>100 km</span></div>
-      </div>
-      <div class="seg two" id="origin">
-        <button type="button" data-v="me">Od mojej lokalizacji</button>
-        <button type="button" data-v="center">Od środka mapy</button>
-      </div>
-      <ol class="near" id="near"></ol>
-      <p class="hint" id="nearHint" hidden></p>
-      <label class="tog" style="margin-top:0"><input type="checkbox" id="follow"> Śledź moje położenie</label>
-    </section>
     </div>
 
     <div class="tabpane" id="tab-map" hidden>
@@ -509,7 +493,7 @@ ol.near button:hover{border-color:var(--accent)}
         <h3>Trzy kroki</h3>
         <ol class="howto">
           <li><b>Wybierz gatunek i termin.</b> Gatunek zmieniasz ikonkami nad mapą, a datę wyjścia na początku zakładki „Gdzie jechać”.</li>
-          <li><b>Znajdź miejsce.</b> Zakładka „Gdzie jechać” wskazuje najlepsze nadleśnictwa w Polsce albo blisko Ciebie i najlepsze wydzielenia w wybranym promieniu, a kolory na mapie – najlepsze fragmenty lasu.</li>
+          <li><b>Znajdź miejsce.</b> Zakładka „Gdzie jechać” wskazuje najlepsze nadleśnictwa w całej Polsce, w widoku mapy albo w wybranym promieniu od Ciebie, a kolory na mapie – najlepsze fragmenty lasu.</li>
           <li><b>Sprawdź kartę i jedź.</b> Karta wydzielenia mówi, co tam rośnie i skąd taka ocena, pokazuje najbliższy parking leśny, a „Prowadź” otwiera nawigację. Po zaparkowaniu stuknij ikonkę auta na mapie – w lesie ta sama ikonka wskaże drogę powrotną.</li>
         </ol>
 
@@ -979,6 +963,7 @@ function renderSpecies(){
   $("legTitle").textContent = SPECIES_INFO[S.sp].name+": szansa na tle lasu";
 }
 function renderNearCtx(){
+  if (!document.getElementById("nearCtx")) return;
   const d = planDate(), v = seasonFactor(S.sp);
   $("nearCtx").innerHTML = `<b>${SPECIES_INFO[S.sp].short}</b> · ${d.toLocaleDateString("pl-PL",{weekday:"long", day:"numeric", month:"long"})} · ${seasonLabel(v)} · warunki: ${MODE_PL[moistMode()].toLowerCase()}${S.avoid?" · omijam tłok":""} <button type="button" class="linkbtn" id="ctxEdit">zmień</button>`;
   $("ctxEdit").onclick = ()=>{ const el = $("planDate"); if (el.scrollIntoView) el.scrollIntoView({block:"center"}); el.focus && el.focus(); };
@@ -996,6 +981,12 @@ function renderSeason(){
 let OUT = null;   // {time:[...], d:{kod:[P[], TX[], TN[]]}}
 let outOrigin = null;   // punkt startu do liczenia odległości (pozycja użytkownika)
 S.outScope = load("outScope", "all"); S.outR = load("outR", 100);
+// odległość od punktu do najbliższej granicy nadleśnictwa (0 w środku)
+function distToDistrict(p, d){
+  const rings = OUTL[d.code] || []; if (rings.some(r=>inRing(p, r))) return 0;
+  let best = 1e12; for (const r of rings) for (let i = 0; i < r.length; i += 2) { const x = p.distanceTo(L.latLng(r[i])); if (x < best) best = x; }
+  return best < 1e12 ? best : p.distanceTo(L.latLng(d.center));
+}
 function locateForOutlook(){
   if (myPos) { outOrigin = myPos; renderOutlook(); return; }
   if (!navigator.geolocation) { toast("Ta przeglądarka nie udostępnia lokalizacji."); return; }
@@ -1004,7 +995,6 @@ function locateForOutlook(){
 }
 function initOutlookControls(){
   segs("outScope", "outScope", ()=>{ track("top10-zakres/"+S.outScope); if (S.outScope === "near" && !outOrigin) locateForOutlook(); renderOutlook(); });
-  $("outR").value = String(S.outR); $("outR").onchange = e=>{ S.outR = +e.target.value; store("outR", S.outR); renderOutlook(); };
   map.on("moveend", ()=>{ if (S.outScope === "view") { clearTimeout(initOutlookControls.t); initOutlookControls.t = setTimeout(renderOutlook, 200); } });
   if (S.outScope === "near") locateForOutlook();
 }
@@ -1053,10 +1043,10 @@ function renderOutlook(){
   $("outRamp").innerHTML = RAMP.map(c=>`<i style="background:${c}"></i>`).join("");
   $("outLegend").hidden = LOADED.size !== 0;
   // zakres listy: cała Polska / to, co widać na mapie / w promieniu od użytkownika
-  const scope = S.outScope, org = outOrigin, Rkm = +S.outR;
+  const scope = S.outScope, org = outOrigin, Rkm = radiusKm();
   $("outNearRow").hidden = scope !== "near";
-  $("outOrigin").textContent = scope === "near" ? (org ? "od Twojej lokalizacji" : "ustalam Twoją lokalizację…") : "";
-  if (org) O.res.forEach(r=>r.km = org.distanceTo(L.latLng(r.d.center)) / 1000);
+  $("outOrigin").textContent = scope === "near" && !org ? "Ustalam Twoją lokalizację…" : "";
+  if (org) O.res.forEach(r=>r.km = distToDistrict(org, r.d) / 1000);
   let list = O.res;
   if (scope === "view") { const bb = map.getBounds(); list = list.filter(r=>inView(r.d, bb)); }
   if (scope === "near") list = org ? list.filter(r=>r.km <= Rkm) : [];
@@ -1065,12 +1055,12 @@ function renderOutlook(){
   $("outHint").textContent = (O.beyond ? "Data poza zasięgiem prognozy (7 dni), liczę z najdalszego dostępnego dnia. " : "") +
     (scope === "near" && !org ? "Potrzebuję Twojej lokalizacji, żeby policzyć odległości." :
      !list.length ? `Brak nadleśnictw ${where}. Przesuń mapę albo zwiększ promień.` :
-     `Najlepsze nadleśnictwa ${where} na ${dl}: deszcz z ostatnich tygodni × ile lasu sprzyja gatunkowi. Odległości w linii prostej.`);
+     `Najlepsze nadleśnictwa ${where} na ${dl}: deszcz z ostatnich tygodni × ile lasu sprzyja gatunkowi. Odległość w linii prostej do granicy nadleśnictwa.`);
   $("outList").innerHTML = list.slice(0, 10).map((r,j)=>{
     const why = r.ago ? `większy deszcz ${r.ago} dni wcześniej` : (r.B < 8 ? "mało deszczu" : "drobne opady");
     return `<li><button type="button" data-c="${r.d.code}"><span class="rk" style="background:${outColor(r.n)};color:${r.n<0.6?"#1d2a22":"#fff"}">${j+1}</span>
       <span><span class="rk-name">${r.d.name}</span><br><span class="rk-meta">RDLP ${r.d.r||""} · ${why} · ${r.q}% lasu sprzyja</span></span>
-      <span style="text-align:right"><span class="sc">${Math.round(r.n*100)}</span>${r.km!=null?`<br><span class="km">${r.km<10?r.km.toFixed(1).replace(".",","):Math.round(r.km)} km</span>`:""}</span></button></li>`; }).join("");
+      <span style="text-align:right"><span class="sc">${Math.round(r.n*100)}</span>${r.km!=null?`<br><span class="km">${r.km<0.05?"tu jesteś":(r.km<10?r.km.toFixed(1).replace(".",","):Math.round(r.km))+" km"}</span>`:""}</span></button></li>`; }).join("");
   $("outList").querySelectorAll("button").forEach(b=>b.onclick=()=>{ track("top10/"+b.dataset.c); if (mobile()) setSheet("peek"); focusDistrict(b.dataset.c); });
 }
 function setPlanDate(v){
@@ -1192,8 +1182,8 @@ function renderDir(){
 
 // ---------- tryb terenowy i planer wypadu: najlepsze miejsca w promieniu ----------
 let myPos = null, NEAR = null, pendingNear = false, nearCircle = null, BEST = null;
-const RADII = [1,2,3,5,8,10,15,20,30,40,50,75,100];
-S.ri = Math.max(0, Math.min(RADII.length-1, +load("ri", 2)));
+const RADII = [1,2,3,5,8,10,15,20,30,40,50,75,100,150,200,300];
+S.ri = Math.max(0, Math.min(RADII.length-1, +load("ri", 10)));
 S.origin = load("origin", "me");
 const radiusKm = () => RADII[S.ri];
 // indeks najlepszych wydzieleń całego regionu, wczytywany przy pierwszym dalszym wyszukiwaniu
@@ -1264,14 +1254,7 @@ function renderNearby(fit=false){
 }
 function showRadius(){ $("radiusVal").textContent = radiusKm() + " km"; $("radius").value = S.ri; }
 $("radius").oninput = e=>{ S.ri = +e.target.value; showRadius(); };
-$("radius").onchange = e=>{ S.ri = +e.target.value; store("ri", S.ri); showRadius(); if (NEAR) findNearby(NEAR.ll); };
-$("nearbyBtn").onclick = ()=>{
-  if (!GM.list.length) return;
-  if (S.origin === "center") { findNearby(map.getCenter()); return; }
-  $("nearbyBtn").disabled = true; pendingNear = true;
-  if (myPos && watching) { pendingNear=false; $("nearbyBtn").disabled=false; findNearby(myPos); return; }
-  map.locate({setView:false, enableHighAccuracy:true, maximumAge:30000, timeout:15000});
-};
+$("radius").onchange = e=>{ S.ri = +e.target.value; store("ri", S.ri); showRadius(); renderOutlook(); };
 
 // ---------- wyszukiwanie oddziału ----------
 $("searchForm").onsubmit = e=>{
@@ -1418,11 +1401,6 @@ async function loadWeather(d){
 // ---------- położenie ----------
 let meCircle = null, meDot = null, wantNearest = false, wantCenter = false, watching = false;
 $("locate").onclick = ()=>{ wantCenter = true; if (myPos && watching) { map.setView(myPos, Math.max(map.getZoom(), 15)); wantCenter=false; return; } map.locate({setView:false, enableHighAccuracy:true, maximumAge:30000}); };
-$("follow").onchange = e=>{
-  watching = e.target.checked;
-  if (watching) map.locate({watch:true, setView:false, enableHighAccuracy:true, maximumAge:10000});
-  else map.stopLocate();
-};
 map.on("locationfound", e=>{
   myPos = e.latlng; if (!outOrigin || outOrigin.distanceTo(myPos) > 2000) { outOrigin = myPos; if (OUT) renderOutlook(); if (ranked.length) renderRank(); }
   if (!meDot) {
@@ -1432,13 +1410,10 @@ map.on("locationfound", e=>{
   if (wantCenter) { wantCenter=false; map.setView(myPos, Math.max(map.getZoom(), 15)); if (mobile()) setSheet("peek"); }
   if (wantNearest) { wantNearest = false; const {d, dist} = districtAt(myPos);
     if (d) { toast(`Najbliżej: ${d.name}, ok. ${Math.round(dist/1000)} km`); openDistrict(d.code); } }
-  if (pendingNear) { pendingNear = false; $("nearbyBtn").disabled = false; findNearby(myPos); }
-  else if (NEAR && watching && S.origin==="me" && myPos.distanceTo(NEAR.ll) > 150) { NEAR.ll = myPos; renderNearby(); }
   renderDir();
 });
 map.on("locationerror", ()=>{
-  wantNearest = wantCenter = pendingNear = false; $("nearbyBtn").disabled = false;
-  if (watching) { watching=false; $("follow").checked=false; }
+  wantNearest = wantCenter = pendingNear = false;
   toast("Nie mam dostępu do położenia. Zezwól przeglądarce na lokalizację. Na komputerze otwieraj mapę przez localhost albo https.");
 });
 
@@ -1463,7 +1438,7 @@ renderSpecies(); renderSeason();
 $("planDate").onchange = e=>setPlanDate(e.target.value);
 $("today").onclick = ()=>setPlanDate(null);
 segs("moist","moist",recompute); segs("day","day",recompute); segs("base","base",()=>setBase(S.base));
-showRadius(); segs("origin","origin",()=>{ if (NEAR && S.origin==="center") findNearby(map.getCenter()); });
+showRadius();
 $("mtKey").value = MAPTILER_KEY;
 $("mtForm").onsubmit = e=>{ e.preventDefault(); store("maptiler", $("mtKey").value.trim()); store("base","osm"); location.reload(); };
 new ResizeObserver(()=>map.invalidateSize()).observe($("map"));
