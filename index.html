@@ -193,8 +193,8 @@ input[type=date]{flex:1;min-width:0;font:600 15px var(--f-body);padding:8px 10px
 .support{margin:0;font-size:13px}
 .support a{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--line)}
 .support a:hover{color:var(--accent);border-color:var(--accent)}
-.tabs{grid-template-columns:repeat(5,1fr)}
-.tabs button{font-size:12px;padding:7px 2px;line-height:1.15}
+.tabs{grid-template-columns:repeat(4,1fr)}
+.tabs button{font-size:12.5px;padding:9px 2px;line-height:1.15}
 .ctx{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .ctx .linkbtn{padding:2px 8px;font-size:12px}
 header{display:flex;flex-direction:column;gap:8px}
@@ -239,7 +239,7 @@ ol.near button:hover{border-color:var(--accent)}
 .outlist .sc{font:700 16px var(--f-mono)}
 .outnear{align-items:center;margin-top:6px}
 .outnear select{width:auto;flex:none}
-.outlist .km{font:600 12px var(--f-mono);color:var(--muted)}
+.outlist .km,.rank .km{font:600 12px var(--f-mono);color:var(--muted)}
 .scrim{display:none}
 @media (max-width:760px){ .scrim{display:block} }
 .menubtn{display:none;position:absolute;left:8px;top:10px;z-index:650;height:38px;padding:0 12px 0 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 14px var(--f-body);align-items:center;gap:6px;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:pointer}
@@ -351,14 +351,13 @@ ol.near button:hover{border-color:var(--accent)}
     </header>
 
     <nav class="tabs" role="tablist" aria-label="Sekcje panelu">
-      <button type="button" role="tab" data-tab="map" aria-selected="true">Las</button>
-      <button type="button" role="tab" data-tab="trip" aria-selected="false">Gdzie jechać</button>
-      <button type="button" role="tab" data-tab="near" aria-selected="false">W pobliżu</button>
+      <button type="button" role="tab" data-tab="trip" aria-selected="true">Gdzie jechać</button>
+      <button type="button" role="tab" data-tab="map" aria-selected="false">Las</button>
       <button type="button" role="tab" data-tab="atlas" aria-selected="false">Atlas</button>
       <button type="button" role="tab" data-tab="about" aria-selected="false">O mapie</button>
     </nav>
 
-    <div class="tabpane" id="tab-map">
+    <div class="tabpane" id="tab-trip">
     <section>
       <h2>Kiedy iść</h2>
       <div class="search" style="align-items:center">
@@ -370,6 +369,47 @@ ol.near button:hover{border-color:var(--accent)}
       <div class="status" id="seasonStatus"></div>
       <div class="seasonall" id="seasonAll"></div>
     </section>
+
+    <section id="outSec">
+      <h2>Najlepsze nadleśnictwa</h2>
+      <div class="seg" id="outScope" role="group" aria-label="Zakres rankingu">
+        <button type="button" data-v="all">Cała Polska</button>
+        <button type="button" data-v="view">Widok mapy</button>
+        <button type="button" data-v="near">Blisko mnie</button>
+      </div>
+      <div class="row2 outnear" id="outNearRow" hidden>
+        <label for="outR">W promieniu</label>
+        <select id="outR"><option value="30">30 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="150">150 km</option><option value="250">250 km</option></select>
+        <span class="hint" id="outOrigin" style="margin:0"></span>
+      </div>
+      <p class="hint" id="outHint" style="margin:6px 0">Liczę szanse dla wszystkich nadleśnictw…</p>
+      <ol class="near outlist" id="outList"></ol>
+    </section>
+
+    <section class="field">
+      <h2>Najlepsze miejsca w pobliżu</h2>
+      <p class="hint" style="margin:0">Szukam najlepszych oddziałów dla gatunku wybranego ikonką nad mapą i dla daty wyjścia. Ustawiasz promień, a start może być od Ciebie albo od środka mapy, np. Twojego domu przy planowaniu wypadu.</p>
+      <div class="ctx" id="nearCtx"></div>
+      <button type="button" class="bigbtn" id="nearbyBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        Znajdź najlepsze miejsca
+      </button>
+      <div class="rangebox">
+        <div class="row"><label for="radius">W promieniu</label><b id="radiusVal">3 km</b></div>
+        <input type="range" id="radius" min="0" max="12" step="1" value="2" aria-describedby="radiusVal">
+        <div class="ticks" aria-hidden="true"><span>1</span><span>5</span><span>15</span><span>40</span><span>100 km</span></div>
+      </div>
+      <div class="seg two" id="origin">
+        <button type="button" data-v="me">Od mojej lokalizacji</button>
+        <button type="button" data-v="center">Od środka mapy</button>
+      </div>
+      <ol class="near" id="near"></ol>
+      <p class="hint" id="nearHint" hidden></p>
+      <label class="tog" style="margin-top:0"><input type="checkbox" id="follow"> Śledź moje położenie</label>
+    </section>
+    </div>
+
+    <div class="tabpane" id="tab-map" hidden>
 
 
     <section>
@@ -385,16 +425,22 @@ ol.near button:hover{border-color:var(--accent)}
     <section>
       <h2>Las</h2>
       <select id="district" aria-label="Wybierz nadleśnictwo"><option value="">Wybierz nadleśnictwo…</option></select>
-      <div class="row2">
-        <button type="button" class="linkbtn" id="nearest">Najbliższy las</button>
-        <button type="button" class="linkbtn" id="overview">Wszystkie nadleśnictwa</button>
-      </div>
     </section>
 
     <section id="rankSec" hidden>
       <h2>Najlepsze oddziały</h2>
       <ol class="rank" id="rank"></ol>
       <button class="more" type="button" id="moreBtn">Pokaż więcej oddziałów</button>
+    </section>
+
+    <section>
+      <h2>Oddział ze słupka</h2>
+      <form class="search" id="searchForm" autocomplete="off">
+        <input id="searchInput" inputmode="text" placeholder="np. 123 albo 123b" aria-label="Numer oddziału, opcjonalnie z literą wydzielenia">
+        <button type="submit">Szukaj</button>
+      </form>
+      <div class="matches" id="matches"></div>
+      <p class="hint">Numer oddziału jest na słupku na skrzyżowaniu linii. Litera to wydzielenie w oddziale.</p>
     </section>
 
 
@@ -449,57 +495,7 @@ ol.near button:hover{border-color:var(--accent)}
 
     </div>
 
-    <div class="tabpane" id="tab-trip" hidden>
-    <section id="outSec">
-      <h2>Najlepsze nadleśnictwa</h2>
-      <div class="seg" id="outScope" role="group" aria-label="Zakres rankingu">
-        <button type="button" data-v="all">Cała Polska</button>
-        <button type="button" data-v="view">Widok mapy</button>
-        <button type="button" data-v="near">Blisko mnie</button>
-      </div>
-      <div class="row2 outnear" id="outNearRow" hidden>
-        <label for="outR">W promieniu</label>
-        <select id="outR"><option value="30">30 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="150">150 km</option><option value="250">250 km</option></select>
-        <span class="hint" id="outOrigin" style="margin:0"></span>
-      </div>
-      <p class="hint" id="outHint" style="margin:6px 0">Liczę szanse dla wszystkich nadleśnictw…</p>
-      <ol class="near outlist" id="outList"></ol>
-    </section>
-    </div>
 
-    <div class="tabpane" id="tab-near" hidden>
-    <section class="field">
-      <p class="hint" style="margin:0">Szukam najlepszych oddziałów dla gatunku wybranego ikonką nad mapą i dla daty wyjścia. Ustawiasz promień, a start może być od Ciebie albo od środka mapy, np. Twojego domu przy planowaniu wypadu.</p>
-      <div class="ctx" id="nearCtx"></div>
-      <button type="button" class="bigbtn" id="nearbyBtn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-        Znajdź najlepsze miejsca
-      </button>
-      <div class="rangebox">
-        <div class="row"><label for="radius">W promieniu</label><b id="radiusVal">3 km</b></div>
-        <input type="range" id="radius" min="0" max="12" step="1" value="2" aria-describedby="radiusVal">
-        <div class="ticks" aria-hidden="true"><span>1</span><span>5</span><span>15</span><span>40</span><span>100 km</span></div>
-      </div>
-      <div class="seg two" id="origin">
-        <button type="button" data-v="me">Od mojej lokalizacji</button>
-        <button type="button" data-v="center">Od środka mapy</button>
-      </div>
-      <ol class="near" id="near"></ol>
-      <p class="hint" id="nearHint" hidden></p>
-      <label class="tog" style="margin-top:0"><input type="checkbox" id="follow"> Śledź moje położenie</label>
-    </section>
-
-    <section>
-      <h2>Oddział ze słupka</h2>
-      <form class="search" id="searchForm" autocomplete="off">
-        <input id="searchInput" inputmode="text" placeholder="np. 123 albo 123b" aria-label="Numer oddziału, opcjonalnie z literą wydzielenia">
-        <button type="submit">Szukaj</button>
-      </form>
-      <div class="matches" id="matches"></div>
-      <p class="hint">Numer oddziału jest na słupku na skrzyżowaniu linii. Litera to wydzielenie w oddziale.</p>
-    </section>
-
-    </div>
 
     <div class="tabpane" id="tab-atlas" hidden>
       <p class="hint" style="margin:0">Pięć grzybów, które mapa ocenia. Liczba miniaturek przy wydzieleniu mówi, jak dobre są tam warunki dla danego gatunku: od jednej (słabe) do pięciu (najlepsze).</p>
@@ -512,8 +508,8 @@ ol.near button:hover{border-color:var(--accent)}
 
         <h3>Trzy kroki</h3>
         <ol class="howto">
-          <li><b>Wybierz gatunek i termin.</b> Gatunek zmieniasz ikonkami nad mapą, a kalendarz w panelu przelicza ją na dzień, w którym jedziesz.</li>
-          <li><b>Znajdź miejsce.</b> Zakładka „Gdzie jechać” wskazuje najlepsze nadleśnictwa w Polsce albo blisko Ciebie, kolory na mapie – najlepsze fragmenty lasu, a „W pobliżu” robi ranking konkretnych wydzieleń w wybranym promieniu.</li>
+          <li><b>Wybierz gatunek i termin.</b> Gatunek zmieniasz ikonkami nad mapą, a datę wyjścia na początku zakładki „Gdzie jechać”.</li>
+          <li><b>Znajdź miejsce.</b> Zakładka „Gdzie jechać” wskazuje najlepsze nadleśnictwa w Polsce albo blisko Ciebie i najlepsze wydzielenia w wybranym promieniu, a kolory na mapie – najlepsze fragmenty lasu.</li>
           <li><b>Sprawdź kartę i jedź.</b> Karta wydzielenia mówi, co tam rośnie i skąd taka ocena, pokazuje najbliższy parking leśny, a „Prowadź” otwiera nawigację. Po zaparkowaniu stuknij ikonkę auta na mapie – w lesie ta sama ikonka wskaże drogę powrotną.</li>
         </ol>
 
@@ -542,10 +538,6 @@ ol.near button:hover{border-color:var(--accent)}
         <h3>Prywatność</h3>
         <p>Strona zlicza anonimowe odsłony i użycie kilku przycisków w GoatCounter – bez ciasteczek i bez śledzenia między serwisami. Twoja pozycja GPS służy tylko do obliczeń w przeglądarce i nigdzie nie jest wysyłana.</p>
 
-        <div id="supportAbout" hidden>
-          <h3>Autor</h3>
-          <p>Mapę rozwijam sam, w wolnym czasie, bez reklam i opłat. Jeśli chcesz pomóc w dalszej pracy, <a id="supportLink2" href="#" target="_blank" rel="noopener">wirtualna kawa</a> bardzo się przyda.</p>
-        </div>
 
         <h3>Ograniczenia</h3>
         <p>Ocena to wynik modelu opartego na literaturze o ekologii grzybów, a nie zapis prawdziwych zbiorów. Bywa, że w „słabym” lesie rośnie najwięcej. Daj znać, jak było – każda relacja z lasu pomaga poprawić wagi.</p>
@@ -969,6 +961,9 @@ $("carBtn").onclick = ()=>{
 $("carShow").onclick = ()=>{ if (car) map.setView([car.lat, car.lng], Math.max(map.getZoom(), 16)); };
 $("carForget").onclick = ()=>{ car = null; store("car", null); drawCar(); closeCarBox(); toast("Zapomniałem miejsce auta."); };
 drawCar();
+// odległość od użytkownika (w linii prostej) – gdy znamy jego położenie
+function kmFrom(ll){ const o = outOrigin || myPos; if (!o) return ""; const d = o.distanceTo(L.latLng(ll)) / 1000;
+  return `<br><span class="km">${d < 10 ? d.toFixed(1).replace(".", ",") : Math.round(d)} km</span>`; }
 function toast(t){ const el=$("toast"); el.textContent=t; el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>el.hidden=true, 4000); }
 
 function setSpecies(k, from){
@@ -986,7 +981,7 @@ function renderSpecies(){
 function renderNearCtx(){
   const d = planDate(), v = seasonFactor(S.sp);
   $("nearCtx").innerHTML = `<b>${SPECIES_INFO[S.sp].short}</b> · ${d.toLocaleDateString("pl-PL",{weekday:"long", day:"numeric", month:"long"})} · ${seasonLabel(v)} · warunki: ${MODE_PL[moistMode()].toLowerCase()}${S.avoid?" · omijam tłok":""} <button type="button" class="linkbtn" id="ctxEdit">zmień</button>`;
-  $("ctxEdit").onclick = ()=>document.querySelector('.tabs button[data-tab="map"]').click();
+  $("ctxEdit").onclick = ()=>{ const el = $("planDate"); if (el.scrollIntoView) el.scrollIntoView({block:"center"}); el.focus && el.focus(); };
 }
 function renderSeason(){
   const info=SPECIES_INFO[S.sp], d=planDate(), m=d.getMonth()+1, v=seasonFactor(S.sp);
@@ -1004,7 +999,7 @@ S.outScope = load("outScope", "all"); S.outR = load("outR", 100);
 function locateForOutlook(){
   if (myPos) { outOrigin = myPos; renderOutlook(); return; }
   if (!navigator.geolocation) { toast("Ta przeglądarka nie udostępnia lokalizacji."); return; }
-  navigator.geolocation.getCurrentPosition(p=>{ outOrigin = L.latLng(p.coords.latitude, p.coords.longitude); renderOutlook(); },
+  navigator.geolocation.getCurrentPosition(p=>{ outOrigin = L.latLng(p.coords.latitude, p.coords.longitude); renderOutlook(); if (ranked.length) renderRank(); },
     ()=>{ toast("Nie mam dostępu do lokalizacji. Zezwól na nią w przeglądarce albo wybierz „Widok mapy”."); }, {enableHighAccuracy:false, timeout:15000, maximumAge:300000});
 }
 function initOutlookControls(){
@@ -1090,7 +1085,7 @@ function renderRank(){
   $("moreBtn").hidden = false;
   $("rank").innerHTML = ranked.slice(0,S.rankN).map(r=>{
     const top = r.best.mix.slice(0,2).map(([t])=>treeName(t)).join(", ");
-    return `<li><button type="button" data-k="${r.k}"><span><span class="rk-name">Oddział ${r.o}</span> <span class="rk-meta">${rangeName(r.best)}${LOADED.size>1?" · "+dname(r.best._d):""}</span><br><span class="icons-inline">${iconRow(iconsFor(r.best),12)}</span><br><span class="rk-meta">${top} · ${r.tot.toFixed(1)} ha · ${crowdPill(r.cr)}</span></span><span class="score">${Math.round(r.v)}</span></button></li>`; }).join("");
+    return `<li><button type="button" data-k="${r.k}"><span><span class="rk-name">Oddział ${r.o}</span> <span class="rk-meta">${rangeName(r.best)}${LOADED.size>1?" · "+dname(r.best._d):""}</span><br><span class="icons-inline">${iconRow(iconsFor(r.best),12)}</span><br><span class="rk-meta">${top} · ${r.tot.toFixed(1)} ha · ${crowdPill(r.cr)}</span></span><span style="text-align:right"><span class="score">${Math.round(r.v)}</span>${kmFrom(r.best.ll)}</span></button></li>`; }).join("");
   $("rank").querySelectorAll("button").forEach(b=>b.onclick=()=>{
     const r = ranked.find(x=>x.k===b.dataset.k); const c = comps.find(c=>uk(c)===r.k);
     select(feats.indexOf(r.best));
@@ -1150,6 +1145,7 @@ function renderCard(){
     <dt>Zwarcie</dt><dd>${f.dens.toFixed(1)}</dd>
     <dt>Skraj lasu</dt><dd>${f.edge>=0.25?"tak":f.edge>0.05?"częściowo":"nie"}</dd>
     <dt>Powierzchnia</dt><dd>${f.ha.toFixed(2)} ha</dd>
+    ${(outOrigin||myPos) ? `<dt>Od Ciebie</dt><dd>${fmtDist((outOrigin||myPos).distanceTo(L.latLng(f.ll)))} w linii prostej</dd>` : ""}
     <dt>Do drogi publ.</dt><dd>${f.dr<1000?Math.round(f.dr/50)*50+" m":(f.dr/1000).toFixed(1)+" km"}</dd>
     <dt>GPS</dt><dd><span style="font-family:var(--f-mono);user-select:all">${f.ll[0].toFixed(5)}, ${f.ll[1].toFixed(5)}</span></dd></dl>
 `;
@@ -1334,7 +1330,7 @@ function setSheet(s){
 // zakładki panelu
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", x===b));
-  ["map","trip","near","atlas","about"].forEach(t=>$("tab-"+t).hidden = t!==b.dataset.tab);
+  ["trip","map","atlas","about"].forEach(t=>$("tab-"+t).hidden = t!==b.dataset.tab);
   store("tab", b.dataset.tab);
 
 });
@@ -1422,14 +1418,13 @@ async function loadWeather(d){
 // ---------- położenie ----------
 let meCircle = null, meDot = null, wantNearest = false, wantCenter = false, watching = false;
 $("locate").onclick = ()=>{ wantCenter = true; if (myPos && watching) { map.setView(myPos, Math.max(map.getZoom(), 15)); wantCenter=false; return; } map.locate({setView:false, enableHighAccuracy:true, maximumAge:30000}); };
-$("nearest").onclick = ()=>{ wantNearest = true; map.locate({setView:false, enableHighAccuracy:false, maximumAge:60000}); };
 $("follow").onchange = e=>{
   watching = e.target.checked;
   if (watching) map.locate({watch:true, setView:false, enableHighAccuracy:true, maximumAge:10000});
   else map.stopLocate();
 };
 map.on("locationfound", e=>{
-  myPos = e.latlng; if (!outOrigin || outOrigin.distanceTo(myPos) > 2000) { outOrigin = myPos; if (OUT) renderOutlook(); }
+  myPos = e.latlng; if (!outOrigin || outOrigin.distanceTo(myPos) > 2000) { outOrigin = myPos; if (OUT) renderOutlook(); if (ranked.length) renderRank(); }
   if (!meDot) {
     meCircle = L.circle(myPos,{radius:e.accuracy, weight:1, color:SEL, fillOpacity:.1, interactive:false}).addTo(map);
     meDot = L.marker(myPos,{interactive:false, keyboard:false, zIndexOffset:1000, icon:L.divIcon({className:"me-pin", iconSize:[18,18]})}).addTo(map);
@@ -1454,18 +1449,17 @@ S.date = load("date", null); if (S.date && S.date < new Date().toLocaleDateStrin
 $("avoid").checked=S.avoid; $("avoid").onchange=e=>{ S.avoid=e.target.checked; store("avoid",S.avoid); recompute(); };
 $("opacity").value=S.op; $("opacity").oninput=e=>{ S.op=+e.target.value; store("op",S.op); recompute(); };
 $("district").onchange=e=>{ if(e.target.value) { track("las/"+dname(e.target.value)); openDistrict(e.target.value); } };
-$("overview").onclick=()=>{ store("dist", null); showOverview(); };
 const ovBan = load("ovBan", true), ovFire = load("ovFire", false);
 $("ovBan").checked = ovBan; $("ovFire").checked = ovFire; setOverlay("ban", ovBan); setOverlay("fire", ovFire); $("fireLegend").hidden = !ovFire;
 $("ovBan").onchange = e=>{ store("ovBan", e.target.checked); setOverlay("ban", e.target.checked); };
 $("ovFire").onchange = e=>{ store("ovFire", e.target.checked); setOverlay("fire", e.target.checked); $("fireLegend").hidden = !e.target.checked; };
 setBase(S.base);
 if (DONATE_URL) {
-  $("supportLine").href = $("supportLink2").href = DONATE_URL;
-  $("supportLine").hidden = false; $("supportAbout").hidden = false;
+  $("supportLine").href = DONATE_URL;
+  $("supportLine").hidden = false;
 }
 renderSpecies(); renderSeason();
-{ const t = load("tab", "map"); const btn = document.querySelector(`.tabs button[data-tab="${t}"]`); if (btn && t!=="map") btn.click(); }
+{ let t = load("tab", "trip"); if (t === "near") t = "trip"; const btn = document.querySelector(`.tabs button[data-tab="${t}"]`); if (btn && t!=="trip") btn.click(); }
 $("planDate").onchange = e=>setPlanDate(e.target.value);
 $("today").onclick = ()=>setPlanDate(null);
 segs("moist","moist",recompute); segs("day","day",recompute); segs("base","base",()=>setBase(S.base));
