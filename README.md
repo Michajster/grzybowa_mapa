@@ -1,6 +1,6 @@
 # Grzybowa mapa
 
-Mapa szansy na grzyby w lasach państwowych całej Polski: 429 nadleśnictw ze wszystkich 17 RDLP, ok. 2,2 mln wydzieleń. Dla każdego wydzielenia leśnego szacuje warunki dla pięciu gatunków (prawdziwek, podgrzybek, koźlarze, kurka, maślak) na podstawie opisu drzewostanu, pogody z ostatnich tygodni i pory roku.
+Mapa szansy na grzyby w lasach państwowych całej Polski: 429 nadleśnictw ze wszystkich 17 RDLP, ok. 2,2 mln wydzieleń. Dla każdego wydzielenia leśnego szacuje warunki dla ośmiu gatunków (prawdziwek, podgrzybek, koźlarze, kurka, maślak, rydze, borowik ceglastopory, kania) na podstawie opisu drzewostanu, pogody z ostatnich tygodni i pory roku.
 
 Adres: https://grzybowamapa.com.pl
 
