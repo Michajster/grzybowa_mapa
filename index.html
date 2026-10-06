@@ -694,7 +694,13 @@ function seasonFactor(sp, d = planDate()){
 }
 function seasonLabel(v){ return v>=0.9 ? "szczyt sezonu" : v>=0.6 ? "dobry czas" : v>=0.3 ? "początek albo koniec sezonu" : v>0.02 ? "pojedyncze owocniki" : "poza sezonem"; }
 // ocena z pogodą i porą roku; season:false = sam las i pogoda (do kolorowania mapy)
-function scoreFor(f, sp, season = true, mode){ return f.x ? null : f.s[sp] * moistFactor(f, mode || moistMode()) * (season ? seasonFactor(sp) : 1); }
+// wx: pogoda nadleśnictwa (domyślnie bieżąca WX); mnożnik pogody obniża ocenę w suszy, chłodzie i przy przymrozkach
+function scoreFor(f, sp, season = true, wx){
+  if (f.x) return null;
+  const w = wx !== undefined ? wx : (typeof WX !== "undefined" ? WX : null);
+  const mode = S.moist === "auto" ? (w ? w.mode : "normal") : S.moist;
+  const wm = (w && typeof weatherMult === "function") ? weatherMult(w).k : 1;
+  return f.s[sp] * moistFactor(f, mode) * wm * (season ? seasonFactor(sp) : 1); }
 // liczba miniaturek 0–5 dla gatunku
 const ICON_STEPS = [20, 35, 50, 65, 80];
 function iconCount(f, sp){ const s = scoreFor(f, sp); if (s==null) return 0; let n=0; for (const t of ICON_STEPS) if (s>=t) n++; return n; }
@@ -1064,10 +1070,10 @@ let outOrigin = null;   // punkt startu do liczenia odległości (pozycja użytk
 S.outScope = load("outScope", "all"); S.outR = load("outR", 100);
 // ---------- rozwinięte nadleśnictwo w „Gdzie jechać”: najlepsze oddziały i najbliższe dobre miejsce ----------
 let outOpen = null;
-function rankDistrictComps(code, data, mode){
+function rankDistrictComps(code, data, wx){
   // ta sama ocena co na karcie wydzielenia: tryb wilgotności z pogody TEGO nadleśnictwa
   const by = new Map(), cmax = Math.max(...data.f.map(f=>f.crowd)) * 1.2 || 1;
-  data.f.forEach(f=>{ if (f.x) return; f._d = f._d || code; let v = scoreFor(f, S.sp, true, mode);
+  data.f.forEach(f=>{ if (f.x) return; f._d = f._d || code; let v = scoreFor(f, S.sp, true, wx || null);
     if (S.avoid) v *= 1 - 0.6*Math.pow(crowdOf(f)/cmax, 1.5);
     const k = f.k; if (!by.has(k)) by.set(k, []); by.get(k).push({f, v}); });
   const out = [];
@@ -1080,7 +1086,7 @@ async function fillDistrictBox(code, box){
   let data; try { data = await GM.load(code); } catch(e) { box.innerHTML = `<p class="hint" style="margin:0">Nie udało się wczytać danych lasu.</p>`; return; }
   const dd = GM.list.find(x=>x.code===code), wx = dd ? await districtWX(dd) : null;
   if (outOpen !== code) return;
-  const rk = rankDistrictComps(code, data, S.moist==="auto" ? (wx ? wx.mode : "normal") : S.moist); if (!rk.length) { box.innerHTML = `<p class="hint" style="margin:0">Brak ocenionych oddziałów.</p>`; return; }
+  const rk = rankDistrictComps(code, data, wx); if (!rk.length) { box.innerHTML = `<p class="hint" style="margin:0">Brak ocenionych oddziałów.</p>`; return; }
   const org = outOrigin || myPos, ranges = (data.meta && data.meta.ranges) || {};
   const km = f => org ? org.distanceTo(L.latLng(f.ll))/1000 : null, fk = d => d==null ? "" : (d<10 ? d.toFixed(1).replace(".",",") : Math.round(d)) + " km";
   const row = r => `<button type="button" class="drow" data-k="${r.k}"><span><span class="rk-name">Oddział ${r.o}</span> <span class="rk-meta">${ranges[r.l] ? "Leśn. "+ranges[r.l] : ""}</span><br><span class="icons-inline">${iconRow(iconsFor(r.best),11)}</span></span><span style="text-align:right"><span class="sc">${Math.round(r.v)}</span>${org?`<br><span class="km">${fk(km(r.best))}</span>`:""}</span></button>`;
@@ -1267,7 +1273,7 @@ function growHtml(f){
   const list = iconsFor(f);
   const rows = list.length ? list.map(({sp,n})=>`<div class="gline"><span class="mrow">${mushSvg(sp,18).repeat(n)}</span><span>${SPECIES_INFO[sp].short}</span></div>`).join("")
     : `<div class="hint" style="margin:0">Żaden z grzybów na mapie nie ma tu dobrych warunków.</div>`;
-  const fx = factors(f, S.sp), mf = moistFactor(f);
+  const fx = factors(f, S.sp), mf = moistFactor(f, S.moist==="auto" ? (WX ? WX.mode : "normal") : S.moist), wm = WX ? weatherMult(WX) : null;
   const bar = (name, v, note) => `<div class="fx"><span>${name}</span><i><b style="width:${Math.round(Math.max(0,Math.min(1,v))*100)}%"></b></i><em>${note}</em></div>`;
   const lvl = v => v>=.85?"bardzo dobre":v>=.6?"dobre":v>=.35?"średnie":"słabe";
   const why = `<details class="why"><summary>Dlaczego taka ocena? (${SPECIES_INFO[S.sp].short})</summary>
@@ -1278,7 +1284,8 @@ function growHtml(f){
     ${bar("Pora roku", seasonFactor(S.sp), seasonLabel(seasonFactor(S.sp)))}
     ${fx.mount!==1 || MODEL[S.sp].mount ? bar("Góry / niziny", fx.mount, ["niziny","wyżyny","góry"][zoneOf(f.site)]) : ""}
     ${bar("Skraj lasu", fx.edge, fx.edge>0.5?"premia +"+Math.round(fx.edgeBonus*fx.edge*100)+"%":fx.edge>0.1?"mała premia":"brak premii")}
-    <p class="hint" style="margin:6px 0 0">Pogoda: ${mf>1.02?"wzmacnia to miejsce (+"+Math.round((mf-1)*100)+"%)":mf<0.98?"osłabia to miejsce ("+Math.round((mf-1)*100)+"%)":"bez wpływu"}.</p></details>`;
+    ${wm ? bar("Pogoda teraz", wm.k, wm.k >= .97 ? wm.why : wm.why+" −"+Math.round((1-wm.k)*100)+"%") : ""}
+    <p class="hint" style="margin:6px 0 0">${wm ? "Pogoda teraz obniża ocenę całego lasu tak samo. " : ""}Wilgotność tego miejsca przy obecnej pogodzie: ${mf>1.02?"pomaga (+"+Math.round((mf-1)*100)+"%)":mf<0.98?"przeszkadza ("+Math.round((mf-1)*100)+"%)":"bez wpływu"}.</p></details>`;
   return `<div class="grow"><div class="lbl">Co tu rośnie</div>${rows}</div>${why}`;
 }
 function rangeName(x){ const m = x && (DMETA[x._d] || (BEST && BEST[x._d])); const n = m && m.ranges && m.ranges[x.l]; return n ? "Leśn. " + n : ""; }
@@ -1489,7 +1496,26 @@ function analyzeWeather(daily, soil){
     if (soil.st != null && soil.st < 6 && frost < 3) { verdict = "Zimna gleba, grzyby rosną wolno"; }
     detail += ` Gleba na głębokości kilku cm: ${soilWord(soil.sm)} (${soil.sm.toFixed(2).replace(".", ",")} m³/m³)${soil.st!=null?`, ${Math.round(soil.st)} °C`:""}.`;
   }
-  return {mode, verdict, detail, p14, p7, pf, tmean7, ti, t, P, soil};
+  return {mode, verdict, detail, p14, p7, pf, tmean7, ti, t, P, TX, TN, soil};
+}
+// mnożnik pogody 0,4–1 na dzień wyjścia: deszcz z 3 tygodni (najważniejszy sprzed 5–16 dni), czas od ulewy, temperatura, przymrozki, wilgotność gleby
+function weatherMult(w){
+  if (!w || !w.t) return {k:1};
+  const key = w.ti + ":" + (S.date || "");
+  if (w._wm && w._wm.key === key) return w._wm;
+  let ti = w.t.indexOf(planDate().toLocaleDateString("sv-SE")); if (ti < 0 || ti < w.ti) ti = w.ti; if (ti >= w.t.length) ti = w.t.length - 1;
+  const P = w.P, TX = w.TX || [], TN = w.TN || [];
+  let B = 0; for (let k = 0; k <= 21; k++) { const p = P[ti-k] || 0; B += p * (k<=2 ? .25 : k<=4 ? .6 : k<=16 ? 1 : .5); }
+  let ago = 0; for (let i = ti-1; i >= Math.max(1, ti-21); i--) if (P[i] >= 10 || P[i] + P[i-1] >= 15) { ago = ti - i; break; }
+  let t7 = 0, n = 0, frost = 0; for (let i = ti-7; i < ti; i++) if (TX[i] != null && TN[i] != null) { t7 += (TX[i]+TN[i])/2; n++; if (TN[i] < 0) frost++; }
+  t7 = n ? t7/n : 12;
+  const timing = ago === 0 ? .6 : ago <= 4 ? .7 : ago <= 17 ? 1 : .85;
+  let m = Math.min(1, B/35) * timing * (t7 < 6 ? .5 : 1) * (frost >= 3 ? .5 : 1);
+  let k = 0.4 + 0.6*m;
+  const sm = w.soil && w.soil.sm;
+  if (sm != null && ti === w.ti) { if (sm < 0.12) k = Math.min(k, .55); else if (sm > 0.28) k = Math.max(k, .7); }
+  const why = frost >= 3 ? "przymrozki" : t7 < 6 ? "zimno" : B < 8 ? "susza" : B < 20 ? "mało deszczu" : ago && ago < 5 ? "deszcz dopiero co spadł" : ago > 17 ? "wysyp mija" : "dobre okno po deszczu";
+  return w._wm = {k: Math.max(.4, Math.min(1, k)), why, key};
 }
 function renderWeather(){
   if (!WX) return;
