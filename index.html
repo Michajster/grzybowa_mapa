@@ -1271,7 +1271,7 @@ function renderCard(){
     <dt>Skraj lasu</dt><dd>${f.edge>=0.25?"tak":f.edge>0.05?"częściowo":"nie"}</dd>
     <dt>Powierzchnia</dt><dd>${f.ha.toFixed(2)} ha</dd>
     ${(outOrigin||myPos) ? `<dt>Od Ciebie</dt><dd>${fmtDist((outOrigin||myPos).distanceTo(L.latLng(f.ll)))} w linii prostej</dd>` : ""}
-    <dt>Do drogi publ.</dt><dd>${f.dr<1000?Math.round(f.dr/50)*50+" m":(f.dr/1000).toFixed(1)+" km"}</dd>
+    <dt>Do drogi lub skraju lasu</dt><dd>${f.dr<1000?Math.round(f.dr/50)*50+" m":(f.dr/1000).toFixed(1)+" km"}</dd>
     <dt>GPS</dt><dd><span style="font-family:var(--f-mono);user-select:all">${f.ll[0].toFixed(5)}, ${f.ll[1].toFixed(5)}</span></dd></dl>
 `;
   $("cx").onclick=()=>{ S.sel=null; renderCard(); highlight(); };
