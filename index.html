@@ -1072,7 +1072,7 @@ let OUT = null;   // {time:[...], d:{kod:[P[], TX[], TN[]]}}
 let outOrigin = null;   // punkt startu do liczenia odległości (pozycja użytkownika)
 S.outScope = load("outScope", "all"); S.outR = load("outR", 100);
 // ---------- rozwinięte nadleśnictwo w „Gdzie jechać”: najlepsze oddziały i najbliższe dobre miejsce ----------
-let outOpen = null;
+let outOpen = null, outOpenBB = null;   // widok mapy z chwili rozwinięcia (kliknięcie oddziału przesuwa mapę)
 function rankDistrictComps(code, data, wx){
   // ta sama ocena co na karcie wydzielenia: tryb wilgotności z pogody TEGO nadleśnictwa
   const by = new Map(), cmax = Math.max(...data.f.map(f=>f.crowd)) * 1.2 || 1;
@@ -1089,15 +1089,22 @@ async function fillDistrictBox(code, box){
   let data; try { data = await GM.load(code); } catch(e) { box.innerHTML = `<p class="hint" style="margin:0">Nie udało się wczytać danych lasu.</p>`; return; }
   const dd = GM.list.find(x=>x.code===code), wx = dd ? await districtWX(dd) : null;
   if (outOpen !== code) return;
-  const rk = rankDistrictComps(code, data, wx); if (!rk.length) { box.innerHTML = `<p class="hint" style="margin:0">Brak ocenionych oddziałów.</p>`; return; }
+  let rk = rankDistrictComps(code, data, wx); if (!rk.length) { box.innerHTML = `<p class="hint" style="margin:0">Brak ocenionych oddziałów.</p>`; return; }
   const org = outOrigin || myPos, ranges = (data.meta && data.meta.ranges) || {};
+  // zakres „Widok mapy” / „Blisko mnie”: tylko oddziały w tym obszarze, żeby nie odsyłać na drugi koniec nadleśnictwa
+  let scopeNote = "";
+  const inScope = S.outScope === "view" ? (bb => r => bb.contains(r.best.ll))(outOpenBB || map.getBounds())
+    : S.outScope === "near" && org ? (r => org.distanceTo(L.latLng(r.best.ll)) <= radiusKm() * 1000) : null;
+  if (inScope) { const sub = rk.filter(inScope);
+    if (sub.length) { rk = sub; scopeNote = S.outScope === "view" ? "w widoku mapy" : "w Twoim promieniu"; }
+    else scopeNote = S.outScope === "view" ? "brak w widoku mapy, pokazuję całe nadleśnictwo" : "brak w Twoim promieniu, pokazuję całe nadleśnictwo"; }
   const km = f => org ? org.distanceTo(L.latLng(f.ll))/1000 : null, fk = d => d==null ? "" : (d<10 ? d.toFixed(1).replace(".",",") : Math.round(d)) + " km";
   const row = r => `<button type="button" class="drow" data-k="${r.k}"><span><span class="rk-name">Oddział ${r.o}</span> <span class="rk-meta">${ranges[r.l] ? "Leśn. "+ranges[r.l] : ""}</span><br><span class="icons-inline">${iconRow(iconsFor(r.best),11)}</span></span><span style="text-align:right"><span class="sc">${Math.round(r.v)}</span>${org?`<br><span class="km">${fk(km(r.best))}</span>`:""}</span></button>`;
   let near = "";
   if (org) { const good = rk.filter(r=>r.v >= Math.max(40, rk[0].v*0.75)); const nb = good.slice().sort((a,b)=>km(a.best)-km(b.best))[0];
     if (nb && !rk.slice(0,5).includes(nb)) near = `<div class="dsub">Najbliżej Ciebie z dobrych</div>` + row(nb);
     else if (nb) near = `<p class="hint" style="margin:4px 0 0">Najbliższe dobre miejsce to oddział ${nb.o} z listy powyżej (${fk(km(nb.best))}).</p>`; }
-  box.innerHTML = `<div class="dsub">Najlepsze oddziały</div>${rk.slice(0,5).map(row).join("")}${near}
+  box.innerHTML = `<div class="dsub">Najlepsze oddziały${scopeNote ? ` <span style="text-transform:none;letter-spacing:0;font-weight:400">· ${scopeNote}</span>` : ""}</div>${rk.slice(0,5).map(row).join("")}${near}
     <button type="button" class="linkbtn dshow">Pokaż całe nadleśnictwo na mapie</button>`;
   box.querySelector(".dshow").onclick = ()=>{ if (mobile()) setSheet("peek"); focusDistrict(code); };
   box.querySelectorAll(".drow").forEach(btn=>btn.onclick = async ()=>{
@@ -1188,7 +1195,7 @@ function renderOutlook(){
       <span><span class="rk-name">${r.d.name}</span><br><span class="rk-meta">RDLP ${r.d.r||""} · ${why} · ${r.q}% lasu sprzyja</span></span>
       <span style="text-align:right"><span class="ow ow${outWord(r.v)[1]}">${outWord(r.v)[0]}</span>${r.km!=null?`<br><span class="km">${r.km<0.05?"tu jesteś":(r.km<10?r.km.toFixed(1).replace(".",","):Math.round(r.km))+" km"}</span>`:""}</span></button>${outOpen===r.d.code?`<div class="dbox" data-x="${r.d.code}"><p class="hint" style="margin:0">Wczytuję oddziały…</p></div>`:""}</li>`; }).join("");
   $("outList").querySelectorAll("button[data-c]").forEach(b=>b.onclick=()=>{ const c = b.dataset.c;
-    outOpen = outOpen === c ? null : c; if (outOpen) track("top10/"+c); renderOutlook(); });
+    outOpen = outOpen === c ? null : c; outOpenBB = map.getBounds(); if (outOpen) track("top10/"+c); renderOutlook(); });
   if (outOpen) { const box = $("outList").querySelector(`[data-x="${outOpen}"]`); if (box) fillDistrictBox(outOpen, box); }
 }
 function setPlanDate(v){
