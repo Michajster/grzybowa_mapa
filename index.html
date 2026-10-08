@@ -254,6 +254,9 @@ ol.near button:hover{border-color:var(--accent)}
 .sheet-handle{display:none}
 .toast{top:58px}
 .carbtn{top:136px}
+.gridbtn{top:182px}.gridbtn .gx{display:none}.gridbtn.on .gx{display:inline}
+.gridbtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+#map.clean .leaflet-overlay-pane,#map.clean .leaflet-tooltip-pane,#map.clean .leaflet-marker-pane>:not(.me-pin):not(.car-pin){display:none}
 .carbtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .carbox{position:absolute;right:56px;top:136px;z-index:660;width:min(300px,calc(100vw - 80px));background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:14px}
 .cardir{display:flex;align-items:center;gap:10px}
@@ -305,6 +308,7 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
   .legend .ramp{width:140px}
   .locbtn{width:44px;height:44px;top:84px}
   .carbtn{top:136px}
+  .gridbtn{top:188px}
   .carbox{top:136px;right:62px}
   .toast{top:auto;bottom:calc(96px + env(safe-area-inset-bottom,0px));text-align:center;width:max-content}
   header{flex-wrap:wrap;row-gap:8px;column-gap:6px;position:relative;align-items:center;justify-content:flex-start}
@@ -367,6 +371,9 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
         <p class="hint" id="meldMsg" role="status"></p>
       </form>
     </dialog>
+    <button class="locbtn gridbtn" type="button" id="gridBtn" aria-pressed="false" aria-label="Ukryj siatkę lasów" title="Ukryj / pokaż siatkę lasów">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5z"/><path d="m2 13 10 5 10-5"/><path class="gx" d="M3 3l18 18" stroke-linecap="round"/></svg>
+    </button>
     <div class="carbox" id="carBox" hidden>
       <div class="cardir" id="carDir">Szukam Twojej pozycji…</div>
       <div class="row2" style="margin-top:6px">
@@ -1258,6 +1265,12 @@ function renderOutlook(){
 }
 ["wxChart","tripWxChart"].forEach(id=>$(id).addEventListener("click", e=>{ const d = e.target.dataset && e.target.dataset.d; if (!d) return;
   const today = new Date().toLocaleDateString("sv-SE"); $("planDate").value = d; setPlanDate(d === today ? null : d); track("wykres-data"); }));
+// czysta mapa: ukrywa siatkę nadleśnictw i oddziałów, żeby wygodnie nawigować po podkładzie
+$("gridBtn").onclick = ()=>{ const on = !$("map").classList.contains("clean");
+  $("map").classList.toggle("clean", on); $("gridBtn").classList.toggle("on", on); $("gridBtn").setAttribute("aria-pressed", on);
+  $("gridBtn").setAttribute("aria-label", on ? "Pokaż siatkę lasów" : "Ukryj siatkę lasów");
+  $("legend").style.visibility = on ? "hidden" : "";
+  toast(on ? "Siatka lasów ukryta. Stuknij ten przycisk ponownie, żeby ją pokazać." : "Siatka lasów z powrotem."); track(on ? "siatka-off" : "siatka-on"); };
 function planNote(){ const n = $("planNote"); if (n) n.hidden = !(S.date && S.date > new Date().toLocaleDateString("sv-SE")); }
 function setPlanDate(v){
   S.date = v || null; store("date", S.date);
