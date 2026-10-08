@@ -1518,12 +1518,17 @@ async function meldLocate(){
   W.textContent = "Sprawdzam, gdzie jesteś…";
   navigator.geolocation.getCurrentPosition(async p=>{
     const ll = L.latLng(p.coords.latitude, p.coords.longitude), acc = p.coords.accuracy;
-    const {d, dist, inside} = districtAt(ll);
-    if (!d || (!inside && dist > 3000)) { W.textContent = "Nie widzę Cię w lesie państwowym. Meldunek można wysłać tylko z lasu (lub do 3 km od niego)."; return; }
+    // meldunek tylko z lasu: punkt w wydzieleniu albo przy nim (z uwzględnieniem błędu GPS)
+    if (acc > 300) { W.innerHTML = `Słaby sygnał GPS (±${Math.round(acc)} m). Wyjdź na otwartą przestrzeń i <button type="button" class="linkbtn" id="meldRetry">sprawdź ponownie</button>.`; $("meldRetry").onclick = meldLocate; return; }
+    const {d} = districtAt(ll);
     let best = null, bd = 1e12;
-    try { const data = await GM.load(d.code);
-      for (const f of data.f) { const r = ring(f.g[0]); if (inRing(ll, r)) { best = f; bd = 0; break; }
-        const dd = ll.distanceTo(L.latLng(f.ll)); if (dd < bd) { bd = dd; best = f; } } } catch(e) {}
+    if (d) try { const data = await GM.load(d.code);
+      for (const f of data.f) { if (ll.distanceTo(L.latLng(f.ll)) > 3000) continue;
+        for (const g of f.g) { const r = ring(g); if (inRing(ll, r)) { best = f; bd = 0; break; }
+          for (const v of r) { const dd = ll.distanceTo(L.latLng(v)); if (dd < bd) { bd = dd; best = f; } } }
+        if (bd === 0) break; } } catch(e) {}
+    const tol = Math.max(100, acc);
+    if (!best || bd > tol) { W.innerHTML = `Nie jesteś w lesie państwowym ani przy nim${best ? ` (najbliższe wydzielenie ok. ${bd < 1000 ? Math.round(bd/10)*10 + " m" : (bd/1000).toFixed(1).replace(".", ",") + " km"})` : ""}. Meldunek można wysłać tylko na miejscu, z lasu. <button type="button" class="linkbtn" id="meldRetry">Sprawdź ponownie</button>`; $("meldRetry").onclick = meldLocate; return; }
     MELD.where = {district:d.code, district_name:d.name, comp: best ? best.k : null, stand: best ? best.k + best.w : null,
       lat: +ll.lat.toFixed(5), lon: +ll.lng.toFixed(5), accuracy_m: Math.round(acc), f: best};
     W.innerHTML = `Jesteś w: <b>Nadl. ${d.name}</b>${best ? `, oddz. ${best.o}${best.w}${bd > 0 ? ` <small>(najbliższe wydzielenie, ${Math.round(bd)} m)</small>` : ""}` : ""}. <small>Dokładność GPS ok. ${Math.round(acc)} m.</small>`;
