@@ -805,7 +805,8 @@ const map = L.map("map", {zoomControl:true, preferCanvas:true, renderer: L.canva
 // Klucz MapTiler (darmowy plan na maptiler.com) wpisuje się w panelu „Podkład mapy”. Bez klucza: OpenStreetMap.
 // Klucz projektu (ograniczony w MapTilerze do domen grzybowamapa.com.pl, michajster.github.io i localhost).
 // Własny klucz wpisany w panelu „Podkład mapy” ma pierwszeństwo.
-const MAPTILER_DEFAULT_KEY = "AqvoyjZkjr2z3PxDmOy6";
+// Klucz projektu wyłączony 8.10: darmowy limit MapTilera się wyczerpał i kafelki pokazywały „Invalid key”. Domyślnie OpenStreetMap.
+const MAPTILER_DEFAULT_KEY = "";
 const MAPTILER_KEY = (()=>{ try { return JSON.parse(localStorage.getItem("gm-maptiler")||'""'); } catch(e){ return ""; } })() || MAPTILER_DEFAULT_KEY;
 const OSM = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"});
 const BASES = {
