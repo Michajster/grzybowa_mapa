@@ -54,11 +54,11 @@ input[type=range]{flex:1;accent-color:var(--accent)}
   <button class="btn sec" id="stop" hidden>Zatrzymaj</button>
   <div class="ctl">
     <label><span>Siatka</span><span class="seg" id="grid"><button data-g="3x4">3×4</button><button data-g="4x6" class="on">4×6</button><button data-g="6x8">6×8</button></span></label>
-    <label><span>Czułość</span><input type="range" id="sens" min="0.2" max="0.8" step="0.05" value="0.45"></label>
+    <label><span>Czułość</span><input type="range" id="sens" min="0.5" max="0.95" step="0.05" value="0.8"><b id="sensV" style="min-width:42px;text-align:right;color:var(--ink)">80%</b></label>
   </div>
-  <p style="font-size:13px">Gęstsza siatka wyłapuje mniejsze grzyby, ale skan trwa dłużej (6×8 to 48 kafelków na raz).</p>
+  <p style="font-size:13px">Gęstsza siatka wyłapuje mniejsze grzyby. Radar najpierw ogląda duże kawałki kadru i zagęszcza siatkę tylko tam, gdzie coś widzi, więc nie zwalnia aż tak bardzo.</p>
   <p class="note">Radar tylko podpowiada, <b>gdzie w kadrze może być grzyb</b>. Nie rozpoznaje gatunków i nie mówi, czy grzyb jest jadalny. Każdy okaz oceniasz sam, a w razie wątpliwości pokaż go grzyboznawcy.</p>
-  <p>Przy pierwszym uruchomieniu telefon pobiera model AI (ok. 90–150 MB, potem jest zapamiętany). Najlepiej zrób to na Wi-Fi, zanim pojedziesz do lasu. Radar działa w całości na telefonie, obraz z kamery nigdzie nie jest wysyłany. Szybciej zużywa baterię, więc włączaj go na chwilę.</p>
+  <p>Przy pierwszym uruchomieniu telefon pobiera model AI (ok. 100–250 MB, potem jest zapamiętany). Najlepiej zrób to na Wi-Fi, zanim pojedziesz do lasu. Radar działa w całości na telefonie, obraz z kamery nigdzie nie jest wysyłany. Szybciej zużywa baterię, więc włączaj go na chwilę.</p>
   <div id="log"></div>
 </main>
 <script type="module">
@@ -69,24 +69,47 @@ const track = n => { try { window.goatcounter && window.goatcounter.count && win
 const LABELS = ["a photo of a mushroom", "a close-up photo of a wild mushroom on the forest floor",
   "forest floor with fallen leaves", "green moss", "tree bark", "grass", "pine needles and cones", "a tree trunk", "the sky"];
 const MUSH = 2;      // ile pierwszych etykiet to grzyb
+const REPO = "Xenova/clip-vit-base-patch32";
+const PRE = 0.25;    // próg wstępny: od tylu % dzielimy duży kafelek na 4 mniejsze
 let COLS = 4, ROWS = 6;
 try { const g = localStorage.getItem("radarGrid"); if (g) [COLS, ROWS] = g.split("x").map(Number); } catch(e){}
-let clf = null, stream = null, running = false;
+let M = null, stream = null, running = false, prevHit = false;
 
+// Model ładujemy w dwóch częściach: opisy tekstowe liczymy raz (i zapamiętujemy),
+// a w pętli działa już tylko część obrazowa – na WebGPU, jeśli telefon ją ma.
 async function loadModel(){
-  if (clf) return clf;
+  if (M) return M;
   $("bar").hidden = false; $("state").textContent = "Pobieram model AI…";
   const T = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3");
   T.env.allowLocalModels = false;
   const files = {};
-  clf = await T.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch32", {
-    dtype: "q8", device: "wasm",
-    progress_callback: p => { if (p.status === "progress" && p.file) { files[p.file] = [p.loaded || 0, p.total || 0];
-      const v = Object.values(files), l = v.reduce((a,b)=>a+b[0],0), t = v.reduce((a,b)=>a+b[1],0);
-      if (t) { $("barI").style.width = (100*l/t).toFixed(0) + "%"; $("state").textContent = `Pobieram model AI… ${Math.round(l/1e6)} / ${Math.round(t/1e6)} MB`; } } }
-  });
-  clf._T = T; $("bar").hidden = true; return clf;
+  const progress_callback = p => { if (p.status === "progress" && p.file) { files[p.file] = [p.loaded || 0, p.total || 0];
+    const v = Object.values(files), l = v.reduce((a,b)=>a+b[0],0), t = v.reduce((a,b)=>a+b[1],0);
+    if (t) { $("barI").style.width = (100*l/t).toFixed(0) + "%"; $("state").textContent = `Pobieram model AI… ${Math.round(l/1e6)} / ${Math.round(t/1e6)} MB`; } } };
+  const processor = await T.AutoProcessor.from_pretrained(REPO);
+  // 1) opisy tekstowe → wektory (raz na zawsze)
+  const KEY = "radarTxt1:" + LABELS.join("|"); let txt = null;
+  try { const c = localStorage.getItem(KEY); if (c) txt = JSON.parse(c); } catch(e){}
+  if (!txt) {
+    $("state").textContent = "Przygotowuję opisy…";
+    const tok = await T.AutoTokenizer.from_pretrained(REPO);
+    const tm = await T.CLIPTextModelWithProjection.from_pretrained(REPO, { dtype: "q8", device: "wasm", progress_callback });
+    const { text_embeds } = await tm(tok(LABELS, { padding: true, truncation: true }));
+    txt = norm(text_embeds.tolist()); try { localStorage.setItem(KEY, JSON.stringify(txt)); } catch(e){}
+    try { await tm.dispose(); } catch(e){}
+  }
+  // 2) część obrazowa: najpierw WebGPU, w razie problemu zwykły procesor
+  const tries = navigator.gpu ? [["webgpu", "fp16"], ["webgpu", "fp32"], ["wasm", "q8"]] : [["wasm", "q8"]];
+  let vm = null, dev = "";
+  for (const [device, dtype] of tries) {
+    try { vm = await T.CLIPVisionModelWithProjection.from_pretrained(REPO, { device, dtype, progress_callback }); dev = device; break; }
+    catch(e) { log(`Nie poszło (${device}/${dtype}): ${e && e.message || e}`); }
+  }
+  if (!vm) throw new Error("Nie udało się wczytać modelu");
+  $("bar").hidden = true; log("Silnik: " + (dev === "webgpu" ? "WebGPU (karta graficzna)" : "procesor (WASM)"));
+  M = { T, processor, vm, txt, dev }; return M;
 }
+const norm = rows => rows.map(r => { const n = Math.hypot(...r) || 1; return r.map(x => x / n); });
 
 async function start(){
   $("start").disabled = true; track("radar-start");
@@ -101,20 +124,37 @@ function stop(){ running = false; if (stream) stream.getTracks().forEach(t=>t.st
   $("start").hidden = false; $("start").disabled = false; $("stop").hidden = true; $("state").textContent = "Kamera wyłączona"; $("best").hidden = true;
   const o = $("ov"); o.getContext("2d").clearRect(0,0,o.width,o.height); }
 
-// kadr dzielony na kafelki 3×4 (z zakładką), każdy oceniany osobno: ile procent „grzyba”
-async function scan(){
-  const v = $("vid"), vw = v.videoWidth, vh = v.videoHeight; if (!vw) return [];
-  const T = clf._T, tiles = [], boxes = [];
-  const tw = vw / COLS, th = vh / ROWS, pad = 0.25;
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-    const x = Math.max(0, (c - pad) * tw), y = Math.max(0, (r - pad) * th), w = Math.min(vw - x, tw * (1 + 2*pad)), h = Math.min(vh - y, th * (1 + 2*pad));
+// ocenia listę prostokątów kadru: dla każdego „ile procent grzyba”
+async function score(boxes){
+  if (!boxes.length) return [];
+  const v = $("vid"), { T, processor, vm, txt } = M, imgs = [];
+  for (const b of boxes) {
+    const pw = b.w * 0.25, ph = b.h * 0.25;
+    const x = Math.max(0, b.x - pw), y = Math.max(0, b.y - ph), w = Math.min(v.videoWidth - x, b.w + 2*pw), h = Math.min(v.videoHeight - y, b.h + 2*ph);
     const cv = document.createElement("canvas"); cv.width = 224; cv.height = 224;
     cv.getContext("2d").drawImage(v, x, y, w, h, 0, 0, 224, 224);
-    tiles.push(T.RawImage.fromCanvas ? T.RawImage.fromCanvas(cv) : await T.RawImage.fromURL(cv.toDataURL("image/jpeg", .9)));
-    boxes.push({x: c*tw, y: r*th, w: tw, h: th});
+    imgs.push(T.RawImage.fromCanvas ? T.RawImage.fromCanvas(cv) : await T.RawImage.fromURL(cv.toDataURL("image/jpeg", .9)));
   }
-  const out = await clf(tiles, LABELS);
-  return (Array.isArray(out[0]) ? out : [out]).map((res, i) => ({...boxes[i], p: res.filter(o => LABELS.indexOf(o.label) < MUSH).reduce((a,o)=>a+o.score, 0)}));
+  const { image_embeds } = await vm(await processor(imgs));
+  return norm(image_embeds.tolist()).map((e, i) => {
+    const lg = txt.map(t => 100 * t.reduce((a, x, j) => a + x * e[j], 0)), mx = Math.max(...lg);
+    const ex = lg.map(l => Math.exp(l - mx)), sum = ex.reduce((a,b)=>a+b, 0);
+    return { ...boxes[i], p: ex.slice(0, MUSH).reduce((a,b)=>a+b, 0) / sum };
+  });
+}
+const grid = (x0, y0, w, h, c, r) => { const out = []; for (let j = 0; j < r; j++) for (let i = 0; i < c; i++) out.push({x: x0 + i*w/c, y: y0 + j*h/r, w: w/c, h: h/r}); return out; };
+
+// najpierw zgrubnie (duże kafelki), potem dokładnie tylko tam, gdzie coś jest
+async function scan(){
+  const v = $("vid"), vw = v.videoWidth, vh = v.videoHeight; if (!vw) return [];
+  if (COLS * ROWS <= 12) return score(grid(0, 0, vw, vh, COLS, ROWS));
+  const coarse = await score(grid(0, 0, vw, vh, COLS / 2, ROWS / 2)), cand = coarse.filter(b => b.p >= PRE);
+  if (!running || !cand.length) return coarse;
+  const fine = await score(cand.flatMap(b => grid(b.x, b.y, b.w, b.h, 2, 2)));
+  const thr = +$("sens").value, out = coarse.filter(b => b.p < PRE);
+  cand.forEach((b, i) => { const kids = fine.slice(i*4, i*4 + 4);
+    if (kids.some(k => k.p >= thr)) out.push(...kids); else out.push(b); });
+  return out;
 }
 
 function draw(res){
@@ -135,14 +175,14 @@ function draw(res){
     const tw = g.measureText(txt).width; g.fillStyle = `rgb(${rgb})`; g.fillRect(x, y, tw + 10*dpr, fs + 8*dpr);
     g.fillStyle = "#fff"; g.fillText(txt, x + 5*dpr, y + fs + 2*dpr); }
   $("best").hidden = false; $("best").textContent = best >= thr ? `Możliwy grzyb · ${Math.round(best*100)}%` : `Nic wyraźnego · ${Math.round(best*100)}%`;
-  if (best >= thr && navigator.vibrate) navigator.vibrate(30);
+  const isHit = best >= thr; if (isHit && prevHit && navigator.vibrate) navigator.vibrate(30); prevHit = isHit;
 }
 
 async function loop(){
   while (running) {
     const t0 = performance.now();
     try { $("state").textContent = "Skanuję…"; const res = await scan(); if (!running) break; draw(res);
-      $("state").textContent = `Skan co ${((performance.now()-t0)/1000).toFixed(1)} s`; }
+      $("state").textContent = `Skan co ${((performance.now()-t0)/1000).toFixed(1)} s · ${M.dev === "webgpu" ? "GPU" : "CPU"}`; }
     catch(e) { log("Błąd skanu: " + (e && e.message || e)); await new Promise(r=>setTimeout(r, 1500)); }
     await new Promise(r=>setTimeout(r, 150));
   }
@@ -152,6 +192,9 @@ function setGrid(g){ [COLS, ROWS] = g.split("x").map(Number);
   try { localStorage.setItem("radarGrid", g); } catch(e){} }
 document.querySelectorAll("#grid button").forEach(b => b.onclick = () => { setGrid(b.dataset.g); track("radar-siatka-" + b.dataset.g); });
 setGrid(COLS + "x" + ROWS);
+const showSens = () => { $("sensV").textContent = Math.round($("sens").value * 100) + "%"; };
+try { const t = localStorage.getItem("radarThr"); if (t) $("sens").value = t; } catch(e){}
+showSens(); $("sens").oninput = () => { showSens(); try { localStorage.setItem("radarThr", $("sens").value); } catch(e){} };
 $("start").onclick = start; $("stop").onclick = stop;
 document.addEventListener("visibilitychange", ()=>{ if (document.hidden && running) stop(); });
 </script>
