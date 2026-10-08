@@ -307,10 +307,13 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
   .carbtn{top:136px}
   .carbox{top:136px;right:62px}
   .toast{top:auto;bottom:calc(96px + env(safe-area-inset-bottom,0px));text-align:center;width:max-content}
-  header{flex-wrap:wrap;row-gap:8px}
-  header .brand{flex:1 1 calc(100% - 56px)}
-  header .drawer-x{order:2}
-  header .coffee{order:3}
+  header{flex-wrap:wrap;row-gap:8px;column-gap:6px;position:relative;align-items:center;justify-content:flex-start}
+  header .brand{flex:1 1 100%;padding-right:52px}
+  header .drawer-x{position:absolute;top:4px;right:4px;width:36px;height:36px;font-size:22px}
+  header .coffee{order:4}
+  header .hdr-actions{order:3;display:contents}
+  header .hbtn{padding:5px 9px;font-size:12px;gap:4px}
+  header .hbtn small{display:none}
   .chip{padding:10px 14px;font-size:15px}
   .mapsp .chip{padding:6px;font-size:13px}
   .mapsp .chip[aria-pressed="true"]{padding:6px 11px 6px 7px}
