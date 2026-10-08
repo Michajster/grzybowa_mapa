@@ -77,7 +77,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .wx-chart{display:flex;align-items:flex-end;gap:2px;height:64px;margin-top:10px;border-bottom:1px solid var(--line)}
 .wx-chart i{flex:1;background:var(--sel);border-radius:2px 2px 0 0;min-height:1px;position:relative}
 .wx-chart i.fc{background:transparent;border:1px dashed var(--sel);border-bottom:0}
-.wx-chart i.today{outline:2px solid var(--accent);outline-offset:1px}
+.wx-chart i.today,.wx-chart i.plan{outline:2px solid var(--accent);outline-offset:1px}.wx-chart i.now{outline:1px solid var(--muted);outline-offset:1px}
 .wx-chart i.old{opacity:.45}
 .wx-axis{display:flex;justify-content:space-between;font:500 11px var(--f-mono);color:var(--muted);margin-top:3px}
 ol.rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;counter-reset:r}
@@ -430,6 +430,7 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
         <input type="date" id="planDate">
         <button type="button" id="today">Dziś</button>
       </div>
+      <p class="hint" id="planNote" hidden style="margin:6px 0 0">Dla przyszłej daty liczę tak, jakby prognozowane opady się sprawdziły. Deszcz po drodze podnosi ocenę, ale grzyby wychodzą zwykle 1–2 tygodnie po nim.</p>
       <div class="season" id="season"></div>
       <div class="status" id="seasonStatus"></div>
       <div class="seasonall" id="seasonAll"></div>
@@ -1198,12 +1199,13 @@ async function loadOutlook(){
 function outlookScores(){
   if (!OUT) return null;
   const day = planDate().toLocaleDateString("sv-SE"); let ti = OUT.time.indexOf(day), beyond = false;
-  if (ti < 0) { if (day > OUT.time[OUT.time.length-1]) { ti = OUT.time.length - 1; beyond = true; } else return null; }
+  if (ti < 0) { if (day > OUT.time[OUT.time.length-1]) beyond = true; else return null; }
   const i0 = Math.max(0, OUT.time.indexOf(new Date().toLocaleDateString("sv-SE", {timeZone:"Europe/Warsaw"})));
   const si = SP_ORDER.indexOf(S.sp), qmax = Math.max(1, ...GM.list.map(x=>(x.q||[])[si]||0)), sf = seasonFactor(S.sp);
   const res = GM.list.map(dd=>{
-    const w = OUT.d[dd.code]; if (!w) return null; const [P, TX, TN, sm] = w;
-    const {k, ago, B, why} = wxCore(P, TX, TN, ti, i0, sm == null ? null : sm);
+    const w = OUT.d[dd.code]; if (!w) return null; const [P0, TX0, TN0, sm] = w;
+    const E = beyond ? extendWx(OUT.time, P0, TX0, TN0, day) : null, P = E ? E.P : P0, TX = E ? E.TX : TX0, TN = E ? E.TN : TN0;
+    const {k, ago, B, why} = wxCore(P, TX, TN, E ? E.tp : ti, i0, sm == null ? null : sm);
     const qn = ((dd.q||[])[si]||0) / qmax;
     return {d:dd, v: k * sf * (.35 + .65*qn), w: k * sf, why, ago, B, q:(dd.q||[])[si]||0};
   }).filter(Boolean);
@@ -1235,7 +1237,7 @@ function renderOutlook(){
   if (scope === "near") list = org ? list.filter(r=>r.km <= Rkm) : [];
   if (O.sf < 0.02) { $("outHint").textContent = `${SPECIES_INFO[S.sp].short} w tym terminie nie owocnikuje. Wybierz inny gatunek albo datę.`; $("outList").innerHTML = ""; return; }
   const where = scope === "view" ? "w widoku mapy" : scope === "near" ? `do ${Rkm} km od Ciebie` : "w całej Polsce";
-  $("outHint").textContent = (O.beyond ? "Data poza zasięgiem prognozy (16 dni), liczę z najdalszego dostępnego dnia. " : "") +
+  $("outHint").textContent = (O.beyond ? "Data poza zasięgiem prognozy (16 dni): po jej końcu zakładam, że nie pada. " : "") +
     (scope === "near" && !org ? "Potrzebuję Twojej lokalizacji, żeby policzyć odległości." :
      !list.length ? `Brak nadleśnictw ${where}. Przesuń mapę albo zwiększ promień.` :
      `Najlepsze nadleśnictwa ${where} na ${dl}: deszcz z ostatnich tygodni × ile lasu sprzyja gatunkowi (ocena słowna łączy jedno i drugie). Odległość w linii prostej do granicy nadleśnictwa. Stuknij nadleśnictwo, żeby zobaczyć oceny 0–100 jego najlepszych oddziałów.`);
@@ -1248,11 +1250,12 @@ function renderOutlook(){
     outOpen = outOpen === c ? null : c; outOpenBB = map.getBounds(); if (outOpen) track("top10/"+c); renderOutlook(); });
   if (outOpen) { const box = $("outList").querySelector(`[data-x="${outOpen}"]`); if (box) fillDistrictBox(outOpen, box); }
 }
+function planNote(){ const n = $("planNote"); if (n) n.hidden = !(S.date && S.date > new Date().toLocaleDateString("sv-SE")); }
 function setPlanDate(v){
   S.date = v || null; store("date", S.date);
   const d = planDate(), wk = (d.getDay()===0 || d.getDay()===6) ? "weekend" : "work";
   if (S.day !== wk) { S.day = wk; store("day", wk); segs("day","day",recompute); }
-  renderSeason(); recompute();
+  renderSeason(); renderWeather(); planNote(); recompute();
 }
 function segs(id,key,after){ $(id).querySelectorAll("button").forEach(b=>{ b.setAttribute("aria-pressed", b.dataset.v===S[key]); b.onclick=()=>{ S[key]=b.dataset.v; store(key,S[key]); segs(id,key,after); after(); }; }); }
 function renderRank(){
@@ -1617,6 +1620,26 @@ function soilToday(h){
   return {sm: avg(h.soil_moisture_3_to_9cm), st: avg(h.soil_temperature_6cm)};
 }
 const soilWord = sm => sm < 0.14 ? "sucha" : sm < 0.22 ? "lekko wilgotna" : sm < 0.32 ? "wilgotna" : "mokra";
+// data poza prognozą (16 dni): dokładamy suche dni, temperatury jak w ostatnim dniu prognozy
+function extendWx(t, P, TX, TN, iso){
+  const last = t[t.length-1]; if (!iso || iso <= last) return {t, P, TX, TN, tp: t.indexOf(iso), extra: 0};
+  const n = Math.round((new Date(iso) - new Date(last)) / 864e5), T = t.slice(), P2 = P.slice(), X = (TX||[]).slice(), N = (TN||[]).slice();
+  for (let k = 1; k <= n; k++) { const d = new Date(last); d.setDate(d.getDate() + k); T.push(d.toLocaleDateString("sv-SE")); P2.push(0); X.push(X[X.length-1]); N.push(N[N.length-1]); }
+  return {t: T, P: P2, TX: X, TN: N, tp: T.length - 1, extra: n};
+}
+// słowna ocena pogody na dowolny dzień ti (dla przyszłych dni prognoza traktowana jak pewna)
+function wxVerdictAt(t, P, TN, ti, frost, tmean7){
+  let lastRain = null;
+  for(let i=ti-1;i>=Math.max(1,ti-21);i--){ if(P[i]>=10 || P[i]+P[i-1]>=15){ const k = (P[i]>=10 || P[i]>=P[i-1]) ? i : i-1; lastRain = {i:k, mm: Math.max(P[k], P[i]+P[i-1]), ago: ti-k}; break; } }
+  let verdict, detail;
+  if (frost >= 3) { verdict = "Przymrozki, sezon gaśnie"; detail = `W ostatnim tygodniu ${frost} noce poniżej zera. Szukaj w cieplejszych, osłoniętych miejscach.`; }
+  else if (tmean7 != null && tmean7 < 6) { verdict = "Za zimno na wysyp"; detail = "Średnia temperatura z tygodnia poniżej 6 °C. Grzyby rosną wolno."; }
+  else if (lastRain && lastRain.ago >= 5 && lastRain.ago <= 16) { verdict = "Dobre okno, warto iść"; detail = `Większy deszcz ${lastRain.ago} dni temu (${fmtDay(t[lastRain.i])}, ok. ${Math.round(lastRain.mm)} mm). To typowe opóźnienie przed wysypem.`; }
+  else if (lastRain && lastRain.ago < 5) { verdict = "Grzyby dopiero ruszają"; detail = `Większy deszcz ${lastRain.ago} ${lastRain.ago===1?"dzień":"dni"} temu. Najlepiej za ok. ${7-lastRain.ago}–${14-lastRain.ago} dni.`; }
+  else if (lastRain) { verdict = "Wysyp mija"; detail = `Ostatni większy deszcz ${lastRain.ago} dni temu. Owocniki mogą być już stare albo wysuszone.`; }
+  else { verdict = "Sucho, słabe szanse"; detail = "Brak większego deszczu w ostatnich 3 tygodniach. Szukaj w obniżeniach i przy ciekach."; }
+  return {verdict, detail, lastRain};
+}
 function analyzeWeather(daily, soil){
   const today = new Date().toLocaleDateString("sv-SE", {timeZone:"Europe/Warsaw"});
   const t = daily.time, P = daily.precipitation_sum.map(v=>v??0), TX = daily.temperature_2m_max, TN = daily.temperature_2m_min;
@@ -1626,18 +1649,10 @@ function analyzeWeather(daily, soil){
   const p14 = sum(ti-14, ti), p7 = sum(ti-7, ti), p3 = sum(ti-3, ti), pf = sum(ti, t.length);
   const tmean7 = (mean(TX,ti-7,ti)+mean(TN,ti-7,ti))/2;
   let frost = 0; for(let i=ti-7;i<ti;i++) if(TN[i]!=null && TN[i]<0) frost++;
-  let lastRain = null;
-  for(let i=ti-1;i>=Math.max(1,ti-21);i--){ if(P[i]>=10 || P[i]+P[i-1]>=15){ const k = (P[i]>=10 || P[i]>=P[i-1]) ? i : i-1; lastRain = {i:k, mm: Math.max(P[k], P[i]+P[i-1]), ago: ti-k}; break; } }
   let mode = "normal";
   if (p14 < 10 && p3 < 5) mode = "dry"; else if (p14 > 40 || p7 > 28) mode = "wet";
-  let verdict, detail;
-  if (frost >= 3) { verdict = "Przymrozki, sezon gaśnie"; detail = `W ostatnim tygodniu ${frost} noce poniżej zera. Szukaj w cieplejszych, osłoniętych miejscach.`; }
-  else if (tmean7 != null && tmean7 < 6) { verdict = "Za zimno na wysyp"; detail = "Średnia temperatura z tygodnia poniżej 6 °C. Grzyby rosną wolno."; }
-  else if (lastRain && lastRain.ago >= 5 && lastRain.ago <= 16) { verdict = "Dobre okno, warto iść"; detail = `Większy deszcz ${lastRain.ago} dni temu (${fmtDay(t[lastRain.i])}, ok. ${Math.round(lastRain.mm)} mm). To typowe opóźnienie przed wysypem.`; }
-  else if (lastRain && lastRain.ago < 5) { verdict = "Grzyby dopiero ruszają"; detail = `Większy deszcz ${lastRain.ago} ${lastRain.ago===1?"dzień":"dni"} temu. Najlepiej za ok. ${7-lastRain.ago}–${14-lastRain.ago} dni.`; }
-  else if (lastRain) { verdict = "Wysyp mija"; detail = `Ostatni większy deszcz ${lastRain.ago} dni temu. Owocniki mogą być już stare albo wysuszone.`; }
-  else { verdict = "Sucho, słabe szanse"; detail = "Brak większego deszczu w ostatnich 3 tygodniach. Szukaj w obniżeniach i przy ciekach."; }
-  if (pf >= 15 && verdict !== "Dobre okno, warto iść") detail += ` W prognozie na 7 dni ok. ${Math.round(pf)} mm deszczu.`;
+  let {verdict, detail} = wxVerdictAt(t, P, TN, ti, frost, tmean7);
+  if (pf >= 15 && verdict !== "Dobre okno, warto iść") detail += ` W prognozie do ${fmtDay(t[t.length-1])} ok. ${Math.round(pf)} mm deszczu.`;
   // wilgotność gleby ma pierwszeństwo przed samą sumą opadów
   if (soil && soil.sm != null) {
     if (soil.sm < 0.14) mode = "dry"; else if (soil.sm > 0.34) mode = "wet"; else if (mode !== "normal" && soil.sm >= 0.18 && soil.sm <= 0.30) mode = "normal";
@@ -1674,18 +1689,37 @@ function weatherMult(w){
   if (!w || !w.t) return {k:1};
   const key = w.ti + ":" + (S.date || "");
   if (w._wm && w._wm.key === key) return w._wm;
-  let ti = w.t.indexOf(planDate().toLocaleDateString("sv-SE")); if (ti < 0 || ti < w.ti) ti = w.ti; if (ti >= w.t.length) ti = w.t.length - 1;
-  const r = wxCore(w.P, w.TX || [], w.TN || [], ti, w.ti, w.soil && w.soil.sm);
+  const E = extendWx(w.t, w.P, w.TX || [], w.TN || [], planDate().toLocaleDateString("sv-SE"));
+  let ti = E.tp; if (ti < 0 || ti < w.ti) ti = w.ti;
+  const r = wxCore(E.P, E.TX, E.TN, ti, w.ti, w.soil && w.soil.sm);
   return w._wm = Object.assign(r, {key});
 }
 function renderWeather(){
   if (!WX) return;
-  const {t, P, ti} = WX, from = Math.max(0, ti-21), max = Math.max(10, ...P.slice(from));
-  $("wxChart").innerHTML = P.slice(from).map((p,k)=>{ const i=from+k; const cls = i>ti?"fc":i===ti?"today":i<ti-14?"old":"";
+  const {t, P, TX, TN, ti} = WX, from = Math.max(0, ti-21), max = Math.max(10, ...P.slice(from));
+  // dzień wyjścia w przyszłości: ocena na ten dzień, przy założeniu że prognozowane opady się sprawdzą
+  const iso = planDate().toLocaleDateString("sv-SE"), E = extendWx(t, P, TX, TN, iso), beyond = E.extra > 0;
+  let tp = E.tp; if (tp < ti) tp = ti; const fut = tp > ti;
+  $("wxChart").innerHTML = P.slice(from).map((p,k)=>{ const i=from+k; const cls = [i>ti?"fc":"", i===ti?(fut?"now":"today"):"", fut&&i===tp?"plan":"", i<ti-14?"old":""].join(" ");
     return `<i class="${cls}" style="height:${Math.max(1, 100*p/max)}%" title="${fmtDay(t[i])}: ${p.toFixed(1)} mm${i>ti?" (prognoza)":""}"></i>`; }).join("");
   $("wxFrom").textContent = fmtDay(t[from]); $("wxTo").textContent = fmtDay(t[t.length-1]);
-  $("wxVerdict").innerHTML = `${WX.verdict}<small>Tryb wg pogody: ${MODE_PL[WX.mode]}</small>`;
-  $("wxText").textContent = `${WX.detail} Ostatnie 14 dni: ${Math.round(WX.p14)} mm, ostatni tydzień: ${Math.round(WX.p7)} mm, średnio ${WX.tmean7!=null?WX.tmean7.toFixed(0):"?"} °C. Słupki: opady dzienne, przerywane to prognoza. ${WX.stale?"Dane z pamięci, z "+WX.stale+".":"Dane: Open-Meteo."}`;
+  let verdict = WX.verdict, text;
+  if (fut) {
+    let fr = 0, s = 0, n = 0; for (let i = tp-7; i < tp; i++) if (E.TX[i] != null && E.TN[i] != null) { s += (E.TX[i]+E.TN[i])/2; n++; if (E.TN[i] < 0) fr++; }
+    const V = wxVerdictAt(E.t, E.P, E.TN, tp, fr, n ? s/n : null);
+    let rain = 0; for (let i = ti; i < Math.min(tp, t.length); i++) rain += P[i];
+    verdict = `${fmtDay(E.t[tp])}: ${V.verdict}`;
+    text = `${V.detail} Od dziś do ${fmtDay(t[Math.min(tp, t.length-1)])} prognoza zapowiada ok. ${Math.round(rain)} mm deszczu. `
+      + `Ocena zakłada, że prognozowane opady się sprawdzą${tp - ti > 7 ? ", a prognoza na ponad tydzień bywa mało pewna" : ""}. `
+      + (beyond ? `Prognoza sięga do ${fmtDay(t[t.length-1])}; na kolejne dni zakładam, że nie pada. ` : "");
+  } else text = WX.detail + " ";
+  // najlepszy dzień w zasięgu prognozy (ten sam wzór, co oceny na mapie)
+  let best = ti, bk = -1, kp = 0;
+  for (let i = ti; i < t.length; i++) { const k = wxCore(P, TX, TN, i, ti, WX.soil && WX.soil.sm).k; if (k > bk + 0.02) { bk = k; best = i; } if (i === tp) kp = k; }
+  if (beyond) kp = wxCore(E.P, E.TX, E.TN, tp, ti, WX.soil && WX.soil.sm).k;
+  if (best !== tp && bk - kp >= 0.08) text += `Najlepiej w prognozie wypada ok. ${fmtDay(t[best])}. `;
+  $("wxVerdict").innerHTML = `${verdict}<small>Tryb wg pogody: ${MODE_PL[WX.mode]}${fut ? " (wg dzisiejszej pogody)" : ""}</small>`;
+  $("wxText").textContent = `${text}Ostatnie 14 dni: ${Math.round(WX.p14)} mm, ostatni tydzień: ${Math.round(WX.p7)} mm, średnio ${WX.tmean7!=null?WX.tmean7.toFixed(0):"?"} °C. Słupki: opady dzienne, przerywane to prognoza${fut ? ", obwiedziony to wybrany dzień" : ""}. ${WX.stale?"Dane z pamięci, z "+WX.stale+".":"Dane: Open-Meteo."}`;
   $("autoBtn").textContent = `Wg pogody (${MODE_PL[WX.mode]})`;
 }
 // pogoda nadleśnictwa bez zmieniania stanu strony (z pamięci, jeśli świeża); null, gdy się nie da
@@ -1736,7 +1770,8 @@ map.on("locationerror", ()=>{
 // ---------- start ----------
 S.sp=load("sp",S.sp); if(!SPECIES_INFO[S.sp]) S.sp="prawdziwek"; if (S.hidden.has(S.sp)) S.sp = SP_ORDER.find(x=>!S.hidden.has(x)) || "prawdziwek";
 S.moist=load("moist","auto");
-S.date = load("date", null); if (S.date && S.date < new Date().toLocaleDateString("sv-SE")) S.date = null; S.day=load("day",S.day); S.avoid=load("avoid",false); S.base=load("base",S.base); S.op=load("op",55);
+S.date = load("date", null); if (S.date && S.date < new Date().toLocaleDateString("sv-SE")) S.date = null;
+planNote(); S.day=load("day",S.day); S.avoid=load("avoid",false); S.base=load("base",S.base); S.op=load("op",55);
 $("avoid").checked=S.avoid; $("avoid").onchange=e=>{ S.avoid=e.target.checked; store("avoid",S.avoid); recompute(); };
 $("opacity").value=S.op; $("opacity").oninput=e=>{ S.op=+e.target.value; store("op",S.op); recompute(); };
 $("district").onchange=e=>{ if(e.target.value) { track("las/"+dname(e.target.value)); openDistrict(e.target.value); } };
