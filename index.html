@@ -218,6 +218,20 @@ header{display:flex;flex-direction:column;gap:8px}
   .coffee small{display:none}
 }
 @media (prefers-reduced-motion:reduce){.coffee{transition:none}}
+.hdr-actions{display:flex;gap:6px;flex-wrap:wrap}
+.hbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);font:700 13px var(--f-body);cursor:pointer}
+.hbtn:hover{border-color:var(--accent);color:var(--accent)}
+.meld{width:min(460px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);padding:14px 16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.meld::backdrop{background:rgba(0,0,0,.45)}
+.meld-h{display:flex;justify-content:space-between;align-items:center}.meld-h h2{margin:0;font:700 19px var(--f-display);text-transform:none;letter-spacing:0;color:var(--ink)}
+.meld-h .drawer-x{display:block;position:static}
+.meld fieldset{border:0;padding:0;margin:12px 0 0}.meld legend{font:700 13px var(--f-body);margin-bottom:6px}.meld legend small{font-weight:400;color:var(--muted)}
+.seg.meld4{grid-template-columns:repeat(4,1fr)}
+.meld textarea{width:100%;box-sizing:border-box;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px;background:transparent;color:var(--ink)}
+.meld-thumbs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.meld-thumbs img{width:64px;height:64px;object-fit:cover;border-radius:6px}
+.meld-ok{display:flex;gap:8px;font-size:13px;align-items:flex-start;color:var(--muted)}
+.meld .btn{width:100%;margin-top:12px}.meld .btn[disabled]{opacity:.5}
+.mrep{font-size:12px;color:var(--accent);font-weight:600}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .brand .logo{width:48px;height:48px;flex:none;border-radius:11px;box-shadow:0 2px 6px rgba(0,0,0,.18)}
 .brand h1{min-width:0}
@@ -330,6 +344,26 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
     <button class="locbtn carbtn" type="button" id="carBtn" aria-label="Zapamiętaj miejsce auta" title="Auto: zapamiętaj miejsce / wróć">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4.6 16.6H3.2a.7.7 0 0 1-.7-.7v-2.7c0-.6.4-1.1 1-1.3l1.6-.5 2-3.4a2 2 0 0 1 1.7-1h5.1a2 2 0 0 1 1.5.7l2.8 3.2 2.5.6c.7.2 1.2.8 1.2 1.5v2.1a.7.7 0 0 1-.7.7h-1.2M9.1 16.6h5.6"/><path d="M7.9 11.4l1.4-2.6h2.5v2.6zM13.6 8.8h.6l2.2 2.6h-2.8z" fill="currentColor" stroke-width="1"/><circle cx="6.9" cy="16.6" r="2.1"/><circle cx="17" cy="16.6" r="2.1"/></svg>
     </button>
+    <dialog class="meld" id="meldDlg" aria-labelledby="meldTitle">
+      <form method="dialog" id="meldForm">
+        <div class="meld-h"><h2 id="meldTitle">Meldunek z lasu</h2><button type="button" class="drawer-x" id="meldX" aria-label="Zamknij">×</button></div>
+        <p class="hint" id="meldWhere">Sprawdzam, gdzie jesteś…</p>
+        <fieldset><legend>Co znalazłeś?</legend>
+          <div class="seg meld4" id="meldFound">
+            <button type="button" data-v="nic">Nic</button><button type="button" data-v="malo">Mało</button><button type="button" data-v="sporo">Sporo</button><button type="button" data-v="duzo">Dużo</button>
+          </div></fieldset>
+        <fieldset><legend>Jakie grzyby? <small>(można kilka)</small></legend><div class="chips" id="meldSp"></div></fieldset>
+        <fieldset><legend>Zdjęcia <small>(do 5, opcjonalnie)</small></legend>
+          <input type="file" id="meldPh" accept="image/*" multiple>
+          <div class="meld-thumbs" id="meldThumbs"></div>
+          <label class="meld-ok"><input type="checkbox" id="meldConsent"> Zgadzam się na użycie moich zdjęć do uczenia modelu rozpoznającego grzyby (Radar). Bez tej zgody zdjęcia nie zostaną wysłane.</label>
+        </fieldset>
+        <fieldset><legend>Uwagi <small>(opcjonalnie)</small></legend><textarea id="meldNote" maxlength="300" rows="2" placeholder="np. sucho, grzyby tylko przy rowach"></textarea></fieldset>
+        <p class="hint">Dokładnego miejsca nie publikujemy. Na mapie pokazujemy tylko podsumowanie dla całego nadleśnictwa. Zdjęcia nie zawierają danych GPS.</p>
+        <button type="button" class="btn" id="meldSend" disabled>Wyślij meldunek</button>
+        <p class="hint" id="meldMsg" role="status"></p>
+      </form>
+    </dialog>
     <div class="carbox" id="carBox" hidden>
       <div class="cardir" id="carDir">Szukam Twojej pozycji…</div>
       <div class="row2" style="margin-top:6px">
@@ -371,6 +405,9 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 2.5c0 1.5 1 1.5 1 3M12 2.5c0 1.5 1 1.5 1 3"/></svg>
         <span>Postaw mi kawę</span><small>mapa jest darmowa i bez reklam</small>
       </a>
+      <div class="hdr-actions">
+        <button type="button" class="hbtn" id="meldBtn"><span aria-hidden="true">📍</span> Melduję się z lasu</button>
+      </div>
       <button type="button" class="drawer-x" id="drawerX" aria-label="Zamknij menu">×</button>
     </header>
 
@@ -549,7 +586,9 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
     </div>
 
 
-    <p class="warn">Mapa ma charakter informacyjny i nie zastępuje rozsądku w lesie. Każdy niepewny okaz pokaż grzyboznawcy, np. w punkcie konsultacyjnym sanepidu.</p>
+    <h3>Meldunki z lasu i prywatność</h3>
+        <p>Przycisk „Melduję się z lasu” zapisuje, w którym nadleśnictwie i wydzieleniu jesteś, co znalazłeś i opcjonalnie zdjęcia. Służy to sprawdzaniu i poprawianiu ocen na mapie, a zdjęcia (tylko za Twoją zgodą) uczeniu modelu rozpoznającego grzyby. Dokładnego miejsca nie publikujemy, na mapie widać tylko liczbę meldunków w całym nadleśnictwie z ostatnich 7 dni. Nie zbieramy imion, e-maili ani kont. Zdjęcia są zmniejszane w telefonie i nie zawierają danych GPS. Prośby o usunięcie meldunku: przez stronę na buycoffee.to/michajster.</p>
+        <p class="warn">Mapa ma charakter informacyjny i nie zastępuje rozsądku w lesie. Każdy niepewny okaz pokaż grzyboznawcy, np. w punkcie konsultacyjnym sanepidu.</p>
     <p class="hint">Dane: Bank Danych o Lasach (BDL), stan na 2026 r. (wytworzone w czerwcu 2026, pobrane 4.10.2026), przetworzone na potrzeby oceny siedlisk. Zakazy i zagrożenie pożarowe: usługi WMS BDL. Pogoda: Open-Meteo. Mapy podkładowe: © OpenStreetMap, MapTiler, OpenTopoMap, Geoportal (GUGiK), Esri.</p>
   </aside>
 </div>
@@ -1194,7 +1233,7 @@ function renderOutlook(){
   $("outList").innerHTML = list.slice(0, 10).map((r,j)=>{
     const why = (r.why === "sucha gleba" ? "sucha gleba · " : "") + (r.ago ? `większy deszcz ${r.ago} dni wcześniej` : (r.B < 8 ? "mało deszczu" : "drobne opady"));
     return `<li><button type="button" data-c="${r.d.code}"><span class="rk" style="background:${outColor(r.n)};color:${r.n<0.6?"#1d2a22":"#fff"}">${j+1}</span>
-      <span><span class="rk-name">${r.d.name}</span><br><span class="rk-meta">RDLP ${r.d.r||""} · ${why} · ${r.q}% lasu sprzyja</span></span>
+      <span><span class="rk-name">${r.d.name}</span><br><span class="rk-meta">RDLP ${r.d.r||""} · ${why} · ${r.q}% lasu sprzyja${repText(r.d.code)}</span></span>
       <span style="text-align:right"><span class="ow ow${outWord(r.w)[1]}">${outWord(r.w)[0]}</span>${r.km!=null?`<br><span class="km">${r.km<0.05?"tu jesteś":(r.km<10?r.km.toFixed(1).replace(".",","):Math.round(r.km))+" km"}</span>`:""}</span></button>${outOpen===r.d.code?`<div class="dbox" data-x="${r.d.code}"><p class="hint" style="margin:0">Wczytuję oddziały…</p></div>`:""}</li>`; }).join("");
   $("outList").querySelectorAll("button[data-c]").forEach(b=>b.onclick=()=>{ const c = b.dataset.c;
     outOpen = outOpen === c ? null : c; outOpenBB = map.getBounds(); if (outOpen) track("top10/"+c); renderOutlook(); });
@@ -1459,6 +1498,86 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
   store("tab", b.dataset.tab);
 
 });
+
+// ---------- meldunki z lasu (Supabase: zapis anonimowy, publicznie tylko podsumowanie nadleśnictw) ----------
+const SB_URL = "https://ilasiafuirtfnjxnbydj.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsYXNpYWZ1aXJ0Zm5qeG5ieWRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NDkyMDcsImV4cCI6MjEwNzAyNTIwN30.q98r2jyUcdBgXgo-_XYv-TfuaAgW7xTvfbOrUbMhRZ0";
+const SB_H = {apikey: SB_KEY, Authorization: "Bearer " + SB_KEY};
+const MELD = {found:null, sp:new Set(), photos:[], where:null};
+function deviceId(){ let d = load("dev", null); if (!d) { d = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); store("dev", d); } return d; }
+// zdjęcie -> JPEG max 1600 px (przerysowanie przez canvas usuwa metadane, w tym GPS)
+function shrink(file){ return new Promise((res, rej)=>{ const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = ()=>{ const k = Math.min(1, 1600/Math.max(img.width, img.height)), c = document.createElement("canvas");
+    c.width = Math.round(img.width*k); c.height = Math.round(img.height*k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url); c.toBlob(b=> b ? res(b) : rej(new Error("zdjęcie")), "image/jpeg", 0.85); };
+  img.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("zdjęcie")); }; img.src = url; }); }
+async function meldLocate(){
+  const W = $("meldWhere"); MELD.where = null; meldValid();
+  if (!navigator.geolocation) { W.textContent = "Ta przeglądarka nie udostępnia lokalizacji."; return; }
+  W.textContent = "Sprawdzam, gdzie jesteś…";
+  navigator.geolocation.getCurrentPosition(async p=>{
+    const ll = L.latLng(p.coords.latitude, p.coords.longitude), acc = p.coords.accuracy;
+    const {d, dist, inside} = districtAt(ll);
+    if (!d || (!inside && dist > 3000)) { W.textContent = "Nie widzę Cię w lesie państwowym. Meldunek można wysłać tylko z lasu (lub do 3 km od niego)."; return; }
+    let best = null, bd = 1e12;
+    try { const data = await GM.load(d.code);
+      for (const f of data.f) { const r = ring(f.g[0]); if (inRing(ll, r)) { best = f; bd = 0; break; }
+        const dd = ll.distanceTo(L.latLng(f.ll)); if (dd < bd) { bd = dd; best = f; } } } catch(e) {}
+    MELD.where = {district:d.code, district_name:d.name, comp: best ? best.k : null, stand: best ? best.k + best.w : null,
+      lat: +ll.lat.toFixed(5), lon: +ll.lng.toFixed(5), accuracy_m: Math.round(acc), f: best};
+    W.innerHTML = `Jesteś w: <b>Nadl. ${d.name}</b>${best ? `, oddz. ${best.o}${best.w}${bd > 0 ? ` <small>(najbliższe wydzielenie, ${Math.round(bd)} m)</small>` : ""}` : ""}. <small>Dokładność GPS ok. ${Math.round(acc)} m.</small>`;
+    meldValid();
+  }, ()=>{ W.textContent = "Brak dostępu do lokalizacji. Zezwól na nią w przeglądarce, żeby się zameldować."; }, {enableHighAccuracy:true, timeout:20000, maximumAge:60000});
+}
+function meldValid(){ $("meldSend").disabled = !(MELD.where && MELD.found); }
+function openMeld(){
+  MELD.found = null; MELD.sp = new Set(); MELD.photos = []; $("meldMsg").textContent = ""; $("meldNote").value = ""; $("meldPh").value = ""; $("meldThumbs").innerHTML = "";
+  $("meldFound").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed","false"));
+  $("meldSp").innerHTML = SP_ORDER.map(k=>`<button type="button" class="chip" data-k="${k}" aria-pressed="false">${mushSvg(k,18)} ${SPECIES_INFO[k].short}</button>`).join("");
+  $("meldSp").querySelectorAll("button").forEach(b=>b.onclick=()=>{ const k=b.dataset.k; if (MELD.sp.has(k)) MELD.sp.delete(k); else MELD.sp.add(k); b.setAttribute("aria-pressed", MELD.sp.has(k)); });
+  const dlg = $("meldDlg"); if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
+  track("meldunek-otworz"); meldLocate();
+}
+$("meldBtn").onclick = openMeld;
+$("meldX").onclick = ()=>{ const dlg = $("meldDlg"); if (dlg.close) dlg.close(); else dlg.removeAttribute("open"); };
+$("meldFound").querySelectorAll("button").forEach(b=>b.onclick=()=>{ MELD.found = b.dataset.v;
+  $("meldFound").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", x===b)); meldValid(); });
+$("meldPh").onchange = e=>{ MELD.photos = [...e.target.files].slice(0,5);
+  $("meldThumbs").innerHTML = ""; MELD.photos.forEach(f=>{ const i = document.createElement("img"); i.src = URL.createObjectURL(f); i.alt = ""; $("meldThumbs").appendChild(i); });
+  if (e.target.files.length > 5) $("meldMsg").textContent = "Wysyłam tylko pierwsze 5 zdjęć."; };
+$("meldSend").onclick = async ()=>{
+  const btn = $("meldSend"), M = $("meldMsg"); btn.disabled = true; M.textContent = "Wysyłam…";
+  try {
+    const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), paths = [];
+    if (MELD.photos.length && $("meldConsent").checked) {
+      for (let i = 0; i < MELD.photos.length; i++) {
+        M.textContent = `Wysyłam zdjęcie ${i+1} z ${MELD.photos.length}…`;
+        const blob = await shrink(MELD.photos[i]), path = `meldunki/${id}/${i+1}.jpg`;
+        const r = await fetch(`${SB_URL}/storage/v1/object/zdjecia/${path}`, {method:"POST", headers:{...SB_H, "Content-Type":"image/jpeg"}, body: blob});
+        if (r.ok) paths.push(path);
+      }
+    }
+    const w = MELD.where, sc = w.f ? scoreFor(w.f, S.sp) : null;
+    const row = {district:w.district, district_name:w.district_name, comp:w.comp, stand:w.stand, lat:w.lat, lon:w.lon, accuracy_m:w.accuracy_m,
+      found:MELD.found, species:[...MELD.sp], note:$("meldNote").value.trim() || null, photos:paths, consent_ai:$("meldConsent").checked && paths.length > 0,
+      device:deviceId(), model_score: sc == null ? null : Math.round(sc*10)/10, app_version:"2026-10-08"};
+    const r = await fetch(`${SB_URL}/rest/v1/meldunki`, {method:"POST", headers:{...SB_H, "Content-Type":"application/json", Prefer:"return=minimal"}, body: JSON.stringify(row)});
+    if (!r.ok) { const t = await r.text(); throw new Error(/Za dużo/.test(t) ? "Za dużo meldunków z tego urządzenia, spróbuj jutro." : "Serwer nie przyjął meldunku."); }
+    M.textContent = "Dzięki! Meldunek zapisany." + (MELD.photos.length && !paths.length ? " Zdjęcia nie zostały wysłane (brak zgody)." : "");
+    track("meldunek-wyslany/" + MELD.found); MREP = null; loadReports();
+    setTimeout(()=>{ const dlg = $("meldDlg"); if (dlg.open && dlg.close) dlg.close(); }, 1800);
+  } catch(e) { M.textContent = "Nie udało się wysłać: " + e.message + " Spróbuj jeszcze raz."; btn.disabled = false; }
+};
+// podsumowanie meldunków z 7 dni dla listy „Gdzie jechać”
+var MREP = null;
+async function loadReports(){
+  try { const r = await fetch(`${SB_URL}/rest/v1/rpc/meldunki_podsumowanie`, {method:"POST", headers:{...SB_H, "Content-Type":"application/json"}, body:'{"dni":7}'});
+    if (!r.ok) return; MREP = Object.fromEntries((await r.json()).map(x=>[x.district, x])); renderOutlook(); } catch(e) {}
+}
+function repText(code){ const r = MREP && MREP[code]; if (!r) return "";
+  const best = r.duzo ? "dużo" : r.sporo ? "sporo" : r.malo ? "mało" : "nic";
+  return ` · <span class="mrep">📍 ${r.n} ${r.n === 1 ? "meldunek" : r.n < 5 ? "meldunki" : "meldunków"} z 7 dni (najlepiej: ${best})</span>`; }
+loadReports();
 // atlas grzybów
 const TREE_FULL = {SO:"sosna",ŚW:"świerk",BK:"buk",DB:"dąb",JD:"jodła",BRZ:"brzoza",GB:"grab",MD:"modrzew",OS:"osika","SO.CZ":"sosna czarna","DB.C":"dąb czerwony"};
 $("atlas").innerHTML = SP_ORDER.map(sp=>{ const s=SPECIES_INFO[sp], m=MODEL[sp], mon=new Date().getMonth()+1;
