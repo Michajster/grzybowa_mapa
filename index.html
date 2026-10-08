@@ -78,7 +78,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .wx-chart i{flex:1;background:var(--sel);border-radius:2px 2px 0 0;min-height:1px;position:relative}
 .wx-chart i.fc{background:transparent;border:1px dashed var(--sel);border-bottom:0}
 .wx-chart i.today,.wx-chart i.plan{outline:2px solid var(--accent);outline-offset:1px}.wx-chart i.now{outline:1px solid var(--muted);outline-offset:1px}
-.wx-chart i.old{opacity:.45}
+.wx-chart i.old{opacity:.45}.wx-chart i[data-d]{cursor:pointer}.wx-mini{margin-top:10px}.wx-mini .wx-chart{height:48px;margin-top:6px}.wx-mini-h{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}.wx-mini-h b{color:var(--ink);text-align:right}
 .wx-axis{display:flex;justify-content:space-between;font:500 11px var(--f-mono);color:var(--muted);margin-top:3px}
 ol.rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;counter-reset:r}
 ol.rank li{counter-increment:r}
@@ -430,6 +430,12 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
         <input type="date" id="planDate">
         <button type="button" id="today">Dziś</button>
       </div>
+      <div class="wx wx-mini" id="tripWx" hidden>
+        <div class="wx-mini-h"><span id="tripWxName"></span><b id="tripWxVerdict"></b></div>
+        <div class="wx-chart" id="tripWxChart"></div>
+        <div class="wx-axis"><span id="tripWxFrom"></span><span>dziś</span><span id="tripWxTo"></span></div>
+      </div>
+      <p class="hint" id="tripWxHint" style="margin:6px 0 0">Przybliż mapę na las, a pokażę tu jego opady z ostatnich tygodni i prognozę.</p>
       <p class="hint" id="planNote" hidden style="margin:6px 0 0">Dla przyszłej daty liczę tak, jakby prognozowane opady się sprawdziły. Deszcz po drodze podnosi ocenę, ale grzyby wychodzą zwykle 1–2 tygodnie po nim.</p>
       <div class="season" id="season"></div>
       <div class="status" id="seasonStatus"></div>
@@ -948,7 +954,7 @@ function rebuild(){
 function updateTitle(){
   const names = [...LOADED.values()].map(e=>e.d.name);
   $("title").textContent = !names.length ? "Grzybowa mapa" : names.length===1 ? "Nadleśnictwo " + names[0] : "Nadleśnictwa: " + names.join(", ");
-  if (!names.length) { $("wxVerdict").textContent = "Przybliż mapę albo wybierz las, a sprawdzę pogodę."; $("wxChart").innerHTML=""; $("wxText").textContent=""; $("wxFrom").textContent=$("wxTo").textContent=""; }
+  if (!names.length) { $("wxVerdict").textContent = "Przybliż mapę albo wybierz las, a sprawdzę pogodę."; $("wxChart").innerHTML=""; $("wxText").textContent=""; $("wxFrom").textContent=$("wxTo").textContent=""; $("tripWx").hidden = true; $("tripWxHint").hidden = false; }
 }
 // wybór lasu z listy, z mapy przeglądowej albo przez lokalizację
 async function focusDistrict(code, fit=true){
@@ -1250,6 +1256,8 @@ function renderOutlook(){
     outOpen = outOpen === c ? null : c; outOpenBB = map.getBounds(); if (outOpen) track("top10/"+c); renderOutlook(); });
   if (outOpen) { const box = $("outList").querySelector(`[data-x="${outOpen}"]`); if (box) fillDistrictBox(outOpen, box); }
 }
+["wxChart","tripWxChart"].forEach(id=>$(id).addEventListener("click", e=>{ const d = e.target.dataset && e.target.dataset.d; if (!d) return;
+  const today = new Date().toLocaleDateString("sv-SE"); $("planDate").value = d; setPlanDate(d === today ? null : d); track("wykres-data"); }));
 function planNote(){ const n = $("planNote"); if (n) n.hidden = !(S.date && S.date > new Date().toLocaleDateString("sv-SE")); }
 function setPlanDate(v){
   S.date = v || null; store("date", S.date);
@@ -1700,9 +1708,13 @@ function renderWeather(){
   // dzień wyjścia w przyszłości: ocena na ten dzień, przy założeniu że prognozowane opady się sprawdzą
   const iso = planDate().toLocaleDateString("sv-SE"), E = extendWx(t, P, TX, TN, iso), beyond = E.extra > 0;
   let tp = E.tp; if (tp < ti) tp = ti; const fut = tp > ti;
-  $("wxChart").innerHTML = P.slice(from).map((p,k)=>{ const i=from+k; const cls = [i>ti?"fc":"", i===ti?(fut?"now":"today"):"", fut&&i===tp?"plan":"", i<ti-14?"old":""].join(" ");
-    return `<i class="${cls}" style="height:${Math.max(1, 100*p/max)}%" title="${fmtDay(t[i])}: ${p.toFixed(1)} mm${i>ti?" (prognoza)":""}"></i>`; }).join("");
-  $("wxFrom").textContent = fmtDay(t[from]); $("wxTo").textContent = fmtDay(t[t.length-1]);
+  const bars = P.slice(from).map((p,k)=>{ const i=from+k; const cls = [i>ti?"fc":"", i===ti?(fut?"now":"today"):"", fut&&i===tp?"plan":"", i<ti-14?"old":""].join(" ");
+    return `<i class="${cls}" style="height:${Math.max(1, 100*p/max)}%" title="${fmtDay(t[i])}: ${p.toFixed(1)} mm${i>ti?" (prognoza)":""}"${i>=ti?` data-d="${t[i]}"`:""}></i>`; }).join("");
+  $("wxChart").innerHTML = $("tripWxChart").innerHTML = bars;
+  $("wxFrom").textContent = $("tripWxFrom").textContent = fmtDay(t[from]); $("wxTo").textContent = $("tripWxTo").textContent = fmtDay(t[t.length-1]);
+  const dn = (GM.list.find(x=>x.code===S.dist) || {}).name;
+  $("tripWx").hidden = false; $("tripWxHint").hidden = true;
+  $("tripWxName").textContent = "Opady" + (dn ? " · " + dn : "");
   let verdict = WX.verdict, text;
   if (fut) {
     let fr = 0, s = 0, n = 0; for (let i = tp-7; i < tp; i++) if (E.TX[i] != null && E.TN[i] != null) { s += (E.TX[i]+E.TN[i])/2; n++; if (E.TN[i] < 0) fr++; }
@@ -1718,6 +1730,7 @@ function renderWeather(){
   for (let i = ti; i < t.length; i++) { const k = wxCore(P, TX, TN, i, ti, WX.soil && WX.soil.sm).k; if (k > bk + 0.02) { bk = k; best = i; } if (i === tp) kp = k; }
   if (beyond) kp = wxCore(E.P, E.TX, E.TN, tp, ti, WX.soil && WX.soil.sm).k;
   if (best !== tp && bk - kp >= 0.08) text += `Najlepiej w prognozie wypada ok. ${fmtDay(t[best])}. `;
+  $("tripWxVerdict").textContent = verdict;
   $("wxVerdict").innerHTML = `${verdict}<small>Tryb wg pogody: ${MODE_PL[WX.mode]}${fut ? " (wg dzisiejszej pogody)" : ""}</small>`;
   $("wxText").textContent = `${text}Ostatnie 14 dni: ${Math.round(WX.p14)} mm, ostatni tydzień: ${Math.round(WX.p7)} mm, średnio ${WX.tmean7!=null?WX.tmean7.toFixed(0):"?"} °C. Słupki: opady dzienne, przerywane to prognoza${fut ? ", obwiedziony to wybrany dzień" : ""}. ${WX.stale?"Dane z pamięci, z "+WX.stale+".":"Dane: Open-Meteo."}`;
   $("autoBtn").textContent = `Wg pogody (${MODE_PL[WX.mode]})`;
