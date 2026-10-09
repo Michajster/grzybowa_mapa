@@ -123,6 +123,8 @@ details ul,details ol{padding-left:18px;margin:6px 0}
 
 select{width:100%;font:600 15px var(--f-body);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
 .row2{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.about a.mail{color:var(--accent);font-weight:600}
+a.linkbtn{text-decoration:none;display:inline-flex;align-items:center;min-height:40px}
 .linkbtn{font:600 13px var(--f-body);background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
 .ban{border:1px solid #b5482c;color:#b5482c;border-radius:8px;padding:6px 8px;font-size:13px;font-weight:600}
 .ban.ok{border-color:var(--line);color:var(--muted);font-weight:400}
@@ -598,14 +600,23 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
         <p>Strona zlicza anonimowe odsłony i użycie kilku przycisków w GoatCounter – bez ciasteczek i bez śledzenia między serwisami. Twoja pozycja GPS służy tylko do obliczeń w przeglądarce i nigdzie nie jest wysyłana.</p>
 
 
+        <h3>Meldunki z lasu</h3>
+        <p>Przycisk „Melduję się z lasu” zapisuje, w którym nadleśnictwie i wydzieleniu jesteś, co znalazłeś i opcjonalnie zdjęcia. Służy to sprawdzaniu i poprawianiu ocen na mapie, a zdjęcia (tylko za Twoją zgodą) uczeniu modelu rozpoznającego grzyby. Dokładnego miejsca nie publikujemy, na mapie widać tylko liczbę meldunków w całym nadleśnictwie z ostatnich 7 dni. Nie zbieramy imion, e-maili ani kont. Zdjęcia są zmniejszane w telefonie i nie zawierają danych GPS. Prośby o usunięcie meldunku: grzybowamapa@gmail.com albo wiadomość do profilu @grzybowa_mapa (TikTok, YouTube).</p>
+
         <h3>Ograniczenia</h3>
         <p>Ocena to wynik modelu opartego na literaturze o ekologii grzybów, a nie zapis prawdziwych zbiorów. Bywa, że w „słabym” lesie rośnie najwięcej. Daj znać, jak było – każda relacja z lasu pomaga poprawić wagi.</p>
+
+        <h3>Kontakt</h3>
+        <p>Masz uwagi do ocen, znalazłeś błąd albo chcesz współpracować (koło łowieckie, nadleśnictwo, sklep, media)? Napisz: <a href="mailto:grzybowamapa@gmail.com" class="mail">grzybowamapa@gmail.com</a></p>
+        <div class="row2 contact-btns">
+          <a class="linkbtn" href="mailto:grzybowamapa@gmail.com?subject=Uwagi%20do%20Grzybowej%20Mapy" data-ev="mail-uwagi">✉️ Uwagi i błędy</a>
+          <a class="linkbtn" href="mailto:grzybowamapa@gmail.com?subject=Wsp%C3%B3%C5%82praca" data-ev="mail-wspolpraca">🤝 Współpraca</a>
+        </div>
       </div>
     </div>
 
 
-    <h3>Meldunki z lasu i prywatność</h3>
-        <p>Przycisk „Melduję się z lasu” zapisuje, w którym nadleśnictwie i wydzieleniu jesteś, co znalazłeś i opcjonalnie zdjęcia. Służy to sprawdzaniu i poprawianiu ocen na mapie, a zdjęcia (tylko za Twoją zgodą) uczeniu modelu rozpoznającego grzyby. Dokładnego miejsca nie publikujemy, na mapie widać tylko liczbę meldunków w całym nadleśnictwie z ostatnich 7 dni. Nie zbieramy imion, e-maili ani kont. Zdjęcia są zmniejszane w telefonie i nie zawierają danych GPS. Prośby o usunięcie meldunku: wiadomość do profilu @grzybowa_mapa (TikTok, YouTube).</p>
+
         <p class="warn">Mapa ma charakter informacyjny i nie zastępuje rozsądku w lesie. Każdy niepewny okaz pokaż grzyboznawcy, np. w punkcie konsultacyjnym sanepidu.</p>
     <p class="hint">Dane: Bank Danych o Lasach (BDL), stan na 2026 r. (wytworzone w czerwcu 2026, pobrane 4.10.2026), przetworzone na potrzeby oceny siedlisk. Zakazy i zagrożenie pożarowe: usługi WMS BDL. Pogoda: Open-Meteo. Mapy podkładowe: © OpenStreetMap, MapTiler, OpenTopoMap, Geoportal (GUGiK), Esri.</p>
   </aside>
@@ -1266,6 +1277,7 @@ function renderOutlook(){
 ["wxChart","tripWxChart"].forEach(id=>$(id).addEventListener("click", e=>{ const d = e.target.dataset && e.target.dataset.d; if (!d) return;
   const today = new Date().toLocaleDateString("sv-SE"); $("planDate").value = d; setPlanDate(d === today ? null : d); track("wykres-data"); }));
 // czysta mapa: ukrywa siatkę nadleśnictw i oddziałów, żeby wygodnie nawigować po podkładzie
+document.querySelectorAll("a[data-ev]").forEach(a=>a.addEventListener("click",()=>track(a.dataset.ev)));
 $("gridBtn").onclick = ()=>{ const on = !$("map").classList.contains("clean");
   $("map").classList.toggle("clean", on); $("gridBtn").classList.toggle("on", on); $("gridBtn").setAttribute("aria-pressed", on);
   $("gridBtn").setAttribute("aria-label", on ? "Pokaż siatkę lasów" : "Ukryj siatkę lasów");
