@@ -53,9 +53,11 @@ input[type=range]{flex:1;accent-color:var(--accent)}
   <button class="btn" id="start">Włącz radar</button>
   <button class="btn sec" id="stop" hidden>Zatrzymaj</button>
   <div class="ctl">
+    <label id="zasRow" hidden><span>Zasięg</span><span class="seg" id="zas"><button data-z="blisko">Blisko</button><button data-z="srednio">Średnio</button><button data-z="daleko">Daleko</button></span></label>
     <label id="gridRow"><span>Siatka</span><span class="seg" id="grid"><button data-g="3x4">3×4</button><button data-g="4x6" class="on">4×6</button><button data-g="6x8">6×8</button></span></label>
     <label><span>Czułość</span><input type="range" id="sens" min="0.5" max="0.95" step="0.05" value="0.8"><b id="sensV" style="min-width:42px;text-align:right;color:var(--ink)">80%</b></label>
   </div>
+  <p id="zasNote" hidden style="font-size:13px">„Daleko” ogląda kadr w 6 przybliżonych kawałkach i wyłapuje grzyby z 1–3 m, ale skanuje wolniej. „Blisko” jest najszybsze, gdy celujesz w grzyb z bliska.</p>
   <p id="gridNote" style="font-size:13px">Gęstsza siatka wyłapuje mniejsze grzyby. Radar najpierw ogląda duże kawałki kadru i zagęszcza siatkę tylko tam, gdzie coś widzi, więc nie zwalnia aż tak bardzo.</p>
   <p class="note">Radar tylko podpowiada, <b>gdzie w kadrze może być grzyb</b>. Nie rozpoznaje gatunków i nie mówi, czy grzyb jest jadalny. Każdy okaz oceniasz sam, a w razie wątpliwości pokaż go grzyboznawcy.</p>
   <p>Przy pierwszym uruchomieniu telefon pobiera model AI (ok. 100–250 MB, potem jest zapamiętany). Najlepiej zrób to na Wi-Fi, zanim pojedziesz do lasu. Radar działa w całości na telefonie, obraz z kamery nigdzie nie jest wysyłany. Szybciej zużywa baterię, więc włączaj go na chwilę.</p>
@@ -131,11 +133,26 @@ async function loadYolo(){
   $("bar").hidden = true; log("Silnik: własny detektor YOLO (" + (dev === "webgpu" ? "GPU" : "CPU") + ")");
   return { ort, sess, dev, cv: Object.assign(document.createElement("canvas"), { width: YSZ, height: YSZ }) };
 }
-async function detect(){
-  const v = $("vid"), vw = v.videoWidth, vh = v.videoHeight; if (!vw) return [];
-  const { ort, sess, cv } = Y, g = cv.getContext("2d", { willReadFrequently: true });
-  const r = Math.min(YSZ / vw, YSZ / vh), dw = vw * r, dh = vh * r, dx = (YSZ - dw) / 2, dy = (YSZ - dh) / 2;
-  g.fillStyle = "rgb(114,114,114)"; g.fillRect(0, 0, YSZ, YSZ); g.drawImage(v, dx, dy, dw, dh);
+// Zasięg: ile razy „przybliżamy” kadr. Każdy kawałek kadru trafia do modelu w pełnej rozdzielczości 416×416,
+// więc grzyb z 1–2 m ma kilka razy więcej pikseli niż przy jednym przebiegu na całym kadrze.
+const ZAS = { blisko: [[1, 1]], srednio: [[1, 1], [2, 2]], daleko: [[1, 1], [2, 3]] };
+let zasieg = null;
+function tiles(vw, vh){
+  const out = [], ov = 0.2;
+  for (const [c0, r0] of ZAS[zasieg] || ZAS.srednio) {
+    const c = vw > vh ? Math.max(c0, r0) : Math.min(c0, r0), r = vw > vh ? Math.min(c0, r0) : Math.max(c0, r0);   // więcej rzędów w pionie
+    const tw = vw / c, th = vh / r;
+    for (let j = 0; j < r; j++) for (let i = 0; i < c; i++) {
+      const x = Math.max(0, (i - ov/2) * tw), y = Math.max(0, (j - ov/2) * th);
+      out.push({ x, y, w: Math.min(vw - x, tw * (1 + ov)), h: Math.min(vh - y, th * (1 + ov)) });
+    }
+  }
+  return out;
+}
+async function runTile(T){
+  const v = $("vid"), { ort, sess, cv } = Y, g = cv.getContext("2d", { willReadFrequently: true });
+  const r = Math.min(YSZ / T.w, YSZ / T.h), dw = T.w * r, dh = T.h * r, dx = (YSZ - dw) / 2, dy = (YSZ - dh) / 2;
+  g.fillStyle = "rgb(114,114,114)"; g.fillRect(0, 0, YSZ, YSZ); g.drawImage(v, T.x, T.y, T.w, T.h, dx, dy, dw, dh);
   const px = g.getImageData(0, 0, YSZ, YSZ).data, A = YSZ * YSZ, inp = new Float32Array(3 * A);
   for (let i = 0; i < A; i++) { inp[i] = px[4*i] / 255; inp[A + i] = px[4*i+1] / 255; inp[2*A + i] = px[4*i+2] / 255; }
   const out = await sess.run({ [sess.inputNames[0]]: new ort.Tensor("float32", inp, [1, 3, YSZ, YSZ]) });
@@ -144,21 +161,36 @@ async function detect(){
   const min = Math.min(0.2, +$("sens").value), cand = [];
   for (let i = 0; i < N; i++) { let p = 0; for (let c = 4; c < C; c++) p = Math.max(p, at(c, i)); if (p < min) continue;
     const cx = at(0, i), cy = at(1, i), w = at(2, i), h = at(3, i);
-    cand.push({ x: (cx - w/2 - dx) / r, y: (cy - h/2 - dy) / r, w: w / r, h: h / r, p }); }
-  cand.sort((p, q) => q.p - p.p); const keep = [];
-  const iou = (p, q) => { const ix = Math.max(0, Math.min(p.x+p.w, q.x+q.w) - Math.max(p.x, q.x)), iy = Math.max(0, Math.min(p.y+p.h, q.y+q.h) - Math.max(p.y, q.y)), I = ix*iy; return I / (p.w*p.h + q.w*q.h - I); };
-  for (const c of cand) { if (keep.every(k => iou(k, c) < 0.45)) keep.push(c); if (keep.length >= 30) break; }
-  return keep;
+    cand.push({ x: T.x + (cx - w/2 - dx) / r, y: T.y + (cy - h/2 - dy) / r, w: w / r, h: h / r, p }); }
+  return cand;
 }
+async function detect(){
+  const v = $("vid"), vw = v.videoWidth, vh = v.videoHeight; if (!vw) return [];
+  let cand = [];
+  for (const T of tiles(vw, vh)) { cand = cand.concat(await runTile(T)); if (!running) return []; }
+  cand.sort((p, q) => q.p - p.p); const keep = [];
+  const inter = (p, q) => Math.max(0, Math.min(p.x+p.w, q.x+q.w) - Math.max(p.x, q.x)) * Math.max(0, Math.min(p.y+p.h, q.y+q.h) - Math.max(p.y, q.y));
+  // ta sama ramka z kilku kawałków: odrzucamy, gdy mocno się nakłada albo w większości leży w już wybranej
+  const dup = (k, c) => { const I = inter(k, c); return I / (k.w*k.h + c.w*c.h - I) > 0.45 || I / Math.min(k.w*k.h, c.w*c.h) > 0.7; };
+  for (const c of cand) { if (!keep.some(k => dup(k, c))) keep.push(c); if (keep.length >= 30) break; }
+  // potwierdzenie: pokazujemy ramkę, gdy była też w poprzednim skanie w tym samym miejscu albo model jest bardzo pewny
+  const near = (p, q) => { const I = inter(p, q); return I / Math.min(p.w*p.h, q.w*q.h) > 0.3; };
+  const shown = keep.filter(c => c.p >= 0.85 || prevBoxes.some(q => near(q, c)));
+  prevBoxes = keep.filter(c => c.p >= Math.min(0.5, +$("sens").value));
+  return shown;
+}
+let prevBoxes = [];
+function setZasieg(z){ zasieg = z; document.querySelectorAll("#zas button").forEach(b => b.classList.toggle("on", b.dataset.z === z)); try { localStorage.setItem("radarZas", z); } catch(e){} }
 
 async function start(){
   $("start").disabled = true; track("radar-start");
   try {
-    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:960}}, audio:false});
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1920}, height:{ideal:1440}}, audio:false});
     const v = $("vid"); v.srcObject = stream; await v.play();
     if (!Y) Y = await loadYolo();
-    if (Y) { mode = "yolo"; $("gridRow").hidden = true; $("gridNote").hidden = true; $("sens").min = "0.2"; $("sens").max = "0.9";
-      try { if (!localStorage.getItem("radarThrY")) $("sens").value = "0.5"; else $("sens").value = localStorage.getItem("radarThrY"); } catch(e){ $("sens").value = "0.5"; } showSens(); }
+    if (Y) { mode = "yolo"; $("gridRow").hidden = true; $("gridNote").hidden = true; $("zasRow").hidden = false; $("zasNote").hidden = false;
+      let z0 = null; try { z0 = localStorage.getItem("radarZas"); } catch(e){} setZasieg(z0 || (Y.dev === "webgpu" ? "daleko" : "srednio")); $("sens").min = "0.2"; $("sens").max = "0.9";
+      try { if (!localStorage.getItem("radarThrY")) $("sens").value = "0.55"; else $("sens").value = localStorage.getItem("radarThrY"); } catch(e){ $("sens").value = "0.55"; } showSens(); }
     else await loadModel();
     running = true; $("start").hidden = true; $("stop").hidden = false; loop();
   } catch(e) { $("state").textContent = "Nie udało się uruchomić"; log("Błąd: " + (e && e.message || e)); $("start").disabled = false; }
@@ -238,6 +270,7 @@ setGrid(COLS + "x" + ROWS);
 const showSens = () => { $("sensV").textContent = Math.round($("sens").value * 100) + "%"; };
 try { const t = localStorage.getItem("radarThr"); if (t) $("sens").value = t; } catch(e){}
 showSens(); $("sens").oninput = () => { showSens(); try { localStorage.setItem(mode === "yolo" ? "radarThrY" : "radarThr", $("sens").value); } catch(e){} };
+document.querySelectorAll("#zas button").forEach(b => b.onclick = () => { setZasieg(b.dataset.z); track("radar-zasieg-" + b.dataset.z); });
 $("start").onclick = start; $("stop").onclick = stop;
 document.addEventListener("visibilitychange", ()=>{ if (document.hidden && running) stop(); });
 </script>
