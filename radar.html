@@ -39,6 +39,13 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 .seg button{flex:1;border:0;background:transparent;color:var(--ink);font:600 13px var(--f-body);padding:7px 4px;cursor:pointer}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button.on{background:var(--accent);color:var(--accent-ink)}
+.uczenie{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:12px}
+.uczenie h3{font:700 15px var(--f-body);margin:0 0 6px}
+.uczenie .row{display:flex;gap:6px;margin-top:8px}
+.uczenie .row button{flex:1;border:1px solid var(--line);background:var(--ground);color:var(--ink);border-radius:8px;padding:10px 4px;font:600 13px var(--f-body);cursor:pointer}
+.uczenie .row button:disabled{opacity:.45}
+.uczenie label{margin-top:4px;font-size:13px;align-items:flex-start}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
 </style>
 </head>
 <body>
@@ -47,11 +54,23 @@ input[type=range]{flex:1;accent-color:var(--accent)}
   <div class="stage" id="stage">
     <video id="vid" playsinline muted></video>
     <canvas class="ov" id="ov"></canvas>
+    <div class="flash" id="flash"></div>
     <div class="hud"><span class="pill" id="state">Kamera wyłączona</span><span class="pill" id="best" hidden></span></div>
   </div>
   <div class="bar" id="bar" hidden><i id="barI"></i></div>
   <button class="btn" id="start">Włącz radar</button>
   <button class="btn sec" id="stop" hidden>Zatrzymaj</button>
+  <div class="uczenie" id="uczenie" hidden>
+    <h3>Pomóż nauczyć radar</h3>
+    <p style="margin:0;font-size:13px">Zapisz kadr z oceną, a trafi do zbioru, na którym douczamy model. Najcenniejsze są pomyłki i przeoczone grzyby.</p>
+    <label><input type="checkbox" id="zgoda"> Zgadzam się na przesyłanie zapisanych kadrów do uczenia modelu. Bez lokalizacji, imienia i konta.</label>
+    <div class="row">
+      <button type="button" data-o="trafil" disabled>✓ Trafił</button>
+      <button type="button" data-o="pomylka" disabled>✗ Pomyłka</button>
+      <button type="button" data-o="przeoczyl" disabled>➕ Przeoczył grzyba</button>
+    </div>
+    <p id="uczMsg" style="margin:6px 0 0;font-size:13px" role="status"></p>
+  </div>
   <div class="ctl">
     <label id="zasRow" hidden><span>Zasięg</span><span class="seg" id="zas"><button data-z="blisko">Blisko</button><button data-z="srednio">Średnio</button><button data-z="daleko">Daleko</button></span></label>
     <label id="gridRow"><span>Siatka</span><span class="seg" id="grid"><button data-g="3x4">3×4</button><button data-g="4x6" class="on">4×6</button><button data-g="6x8">6×8</button></span></label>
@@ -192,10 +211,10 @@ async function start(){
       let z0 = null; try { z0 = localStorage.getItem("radarZas"); } catch(e){} setZasieg(z0 || (Y.dev === "webgpu" ? "daleko" : "srednio")); $("sens").min = "0.2"; $("sens").max = "0.9";
       try { if (!localStorage.getItem("radarThrY")) $("sens").value = "0.55"; else $("sens").value = localStorage.getItem("radarThrY"); } catch(e){ $("sens").value = "0.55"; } showSens(); }
     else await loadModel();
-    running = true; $("start").hidden = true; $("stop").hidden = false; loop();
+    running = true; $("start").hidden = true; $("stop").hidden = false; $("uczenie").hidden = false; uczUI(); loop();
   } catch(e) { $("state").textContent = "Nie udało się uruchomić"; log("Błąd: " + (e && e.message || e)); $("start").disabled = false; }
 }
-function stop(){ running = false; if (stream) stream.getTracks().forEach(t=>t.stop()); stream = null;
+function stop(){ running = false; setTimeout(uczUI, 0); if (stream) stream.getTracks().forEach(t=>t.stop()); stream = null;
   $("start").hidden = false; $("start").disabled = false; $("stop").hidden = true; $("state").textContent = "Kamera wyłączona"; $("best").hidden = true;
   const o = $("ov"); o.getContext("2d").clearRect(0,0,o.width,o.height); }
 
@@ -233,6 +252,7 @@ async function scan(){
 }
 
 function draw(res){
+  lastRes = res;
   const v = $("vid"), o = $("ov"), st = $("stage"); o.width = st.clientWidth * devicePixelRatio; o.height = st.clientHeight * devicePixelRatio;
   const g = o.getContext("2d"); g.clearRect(0,0,o.width,o.height);
   // video jest skalowane jak object-fit: cover
@@ -271,6 +291,37 @@ const showSens = () => { $("sensV").textContent = Math.round($("sens").value * 1
 try { const t = localStorage.getItem("radarThr"); if (t) $("sens").value = t; } catch(e){}
 showSens(); $("sens").oninput = () => { showSens(); try { localStorage.setItem(mode === "yolo" ? "radarThrY" : "radarThr", $("sens").value); } catch(e){} };
 document.querySelectorAll("#zas button").forEach(b => b.onclick = () => { setZasieg(b.dataset.z); track("radar-zasieg-" + b.dataset.z); });
+
+// ── zapisywanie kadrów do uczenia (Supabase, prywatny folder radar/) ──
+const SB_URL = "https://ilasiafuirtfnjxnbydj.supabase.co", SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlsYXNpYWZ1aXJ0Zm5qeG5ieWRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NDkyMDcsImV4cCI6MjEwNzAyNTIwN30.q98r2jyUcdBgXgo-_XYv-TfuaAgW7xTvfbOrUbMhRZ0";
+const SB_H = { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY };
+let lastRes = [], zapisane = 0;
+function dev(){ let d = null; try { d = localStorage.getItem("radarDev"); } catch(e){}
+  if (!d) { d = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now(); try { localStorage.setItem("radarDev", d); } catch(e){} } return d; }
+function uczUI(){ const ok = $("zgoda").checked; document.querySelectorAll("#uczenie .row button").forEach(b => b.disabled = !ok || !running); }
+try { $("zgoda").checked = localStorage.getItem("radarZgoda") === "1"; } catch(e){}
+$("zgoda").onchange = () => { try { localStorage.setItem("radarZgoda", $("zgoda").checked ? "1" : "0"); } catch(e){} uczUI(); };
+async function zapiszKadr(ocena){
+  const v = $("vid"); if (!v.videoWidth) return;
+  const k = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight)), W = Math.round(v.videoWidth * k), H = Math.round(v.videoHeight * k);
+  const c = Object.assign(document.createElement("canvas"), { width: W, height: H }); c.getContext("2d").drawImage(v, 0, 0, W, H);
+  const ramki = lastRes.filter(b => b.p >= +$("sens").value).slice(0, 40).map(b => ({ x: +(b.x / v.videoWidth).toFixed(4), y: +(b.y / v.videoHeight).toFixed(4),
+    w: +(b.w / v.videoWidth).toFixed(4), h: +(b.h / v.videoHeight).toFixed(4), p: +b.p.toFixed(3) }));   // współrzędne 0–1
+  $("flash").style.opacity = .7; setTimeout(() => $("flash").style.opacity = 0, 120);
+  document.querySelectorAll("#uczenie .row button").forEach(b => b.disabled = true); $("uczMsg").textContent = "Wysyłam…";
+  try {
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));          // przerysowanie przez canvas = brak metadanych
+    const d = dev(), path = `radar/${d}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
+    const r1 = await fetch(`${SB_URL}/storage/v1/object/zdjecia/${path}`, { method: "POST", headers: { ...SB_H, "Content-Type": "image/jpeg" }, body: blob });
+    if (!r1.ok) throw new Error("zdjęcie: " + r1.status);
+    const r2 = await fetch(`${SB_URL}/rest/v1/radar_kadry`, { method: "POST", headers: { ...SB_H, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ device: d, path, ocena, ramki, szer: W, wys: H, silnik: mode === "yolo" ? "yolo-" + Y.dev : "clip-" + (M && M.dev), zasieg: mode === "yolo" ? zasieg : COLS + "x" + ROWS, prog: +$("sens").value }) });
+    if (!r2.ok) throw new Error((await r2.text()).slice(0, 120));
+    zapisane++; $("uczMsg").textContent = `Zapisano, dziękuję! Kadrów w tej sesji: ${zapisane}.`; track("radar-kadr-" + ocena);
+  } catch(e) { $("uczMsg").textContent = "Nie udało się zapisać: " + (e.message || e); }
+  uczUI();
+}
+document.querySelectorAll("#uczenie .row button").forEach(b => b.onclick = () => zapiszKadr(b.dataset.o));
 $("start").onclick = start; $("stop").onclick = stop;
 document.addEventListener("visibilitychange", ()=>{ if (document.hidden && running) stop(); });
 </script>
