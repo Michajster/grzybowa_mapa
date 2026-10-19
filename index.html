@@ -211,6 +211,16 @@ input[type=date]{flex:1;min-width:0;font:600 15px var(--f-body);padding:8px 10px
 .ctx .linkbtn{padding:2px 8px;font-size:12px}
 header{display:flex;flex-direction:column;gap:8px}
 .coffee{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border-radius:999px;background:#f3e3cf;color:#5a3414;border:1px solid #d9b98f;text-decoration:none;font:700 14px var(--f-body);box-shadow:0 1px 2px rgba(90,52,20,.15);transition:transform .15s, box-shadow .15s}
+.kawa-pop{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;z-index:1200;width:min(380px,calc(100vw - 24px));background:var(--panel);color:var(--ink);border:1px solid #d9b98f;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.28);padding:16px 16px 14px;transition:opacity .3s,transform .3s}
+.kawa-pop.on{opacity:1;transform:translate(-50%,0)}
+.kawa-pop h3{margin:0 30px 6px 0;font:700 17px var(--f-display)}
+.kawa-pop p{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.kawa-pop .kx{position:absolute;top:8px;right:8px;width:34px;height:34px;border:0;background:none;color:var(--muted);font-size:22px;cursor:pointer}
+.kawa-pop .row2{gap:8px}
+.kawa-pop .kgo{flex:1;text-align:center;text-decoration:none;padding:10px 12px;border-radius:999px;background:#f3e3cf;color:#5a3414;border:1px solid #d9b98f;font-weight:700}
+.kawa-pop .kno{padding:10px 12px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--ink);font:600 14px var(--f-body);cursor:pointer}
+@media (prefers-color-scheme: dark){.kawa-pop{border-color:#6b4c2e}.kawa-pop .kgo{background:#3a2a1c;color:#f3d9b8;border-color:#6b4c2e}}
+@media (prefers-reduced-motion:reduce){.kawa-pop{transition:none}}
 .coffee small{font:500 12px var(--f-body);color:#8a6440}
 .coffee:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(90,52,20,.22)}
 @media (prefers-color-scheme: dark){.coffee{background:#3a2a1c;color:#f3d9b8;border-color:#6b4c2e}.coffee small{color:#c9a57c}}
@@ -618,6 +628,12 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
   </aside>
 </div>
 
+<div class="kawa-pop" id="kawaPop" role="dialog" aria-labelledby="kawaH" hidden>
+  <button type="button" class="kx" id="kawaX" aria-label="Zamknij">×</button>
+  <h3 id="kawaH">☕ Mapa pomogła?</h3>
+  <p>Grzybowa Mapa jest darmowa i bez reklam. Jeśli pomogła Ci znaleźć grzyby, rozważ postawienie kawy. To pomaga utrzymać prognozy i aktualne dane o lasach.</p>
+  <div class="row2"><a class="kgo" id="kawaGo" target="_blank" rel="noopener">Postaw kawę</a><button type="button" class="kno" id="kawaNo">Nie teraz</button></div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <!-- licznik wejść: GoatCounter (anonimowo, bez ciasteczek); panel: https://michajster.goatcounter.com -->
 <script data-goatcounter="https://michajster.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
@@ -801,7 +817,7 @@ if (document.addEventListener) document.addEventListener("click", e=>{
   const t = e.target && e.target.closest ? e.target.closest("a,button") : null; if (!t) return;
   if (t.id === "nearbyBtn") track("szukaj-w-poblizu");
   else if (t.matches && t.matches(".btn") && t.textContent.trim() === "Prowadź") track("prowadz");
-  else if (t.href && t.href.indexOf("buycoffee.to") >= 0) track("kawa");
+  else if (t.href && t.href.indexOf("buycoffee.to") >= 0) { track("kawa"); store("kawaDzien", new Date().toLocaleDateString("sv-SE")); }
 }, true);
 
 const S = {sp:"prawdziwek", moist:"auto", day:"weekend", avoid:false, sel:null, rankN:10, base:"osm", op:55, dist:null};
@@ -1289,6 +1305,20 @@ $("gridBtn").onclick = ()=>{ const on = !$("map").classList.contains("clean");
   $("gridBtn").setAttribute("aria-label", on ? "Pokaż siatkę lasów" : "Ukryj siatkę lasów");
   $("legend").style.visibility = on ? "hidden" : "";
   toast(on ? "Siatka lasów ukryta. Stuknij ten przycisk ponownie, żeby ją pokazać." : "Siatka lasów z powrotem."); track(on ? "siatka-off" : "siatka-on"); };
+
+// prośba o kawę: raz dziennie na urządzeniu, kilka sekund po wejściu (nie przy pierwszym ładowaniu mapy)
+(function kawaPopup(){
+  if (!DONATE_URL) return;
+  const today = new Date().toLocaleDateString("sv-SE"), el = $("kawaPop");
+  if (load("kawaDzien", "") === today) return;
+  const close = ev => { store("kawaDzien", today); el.classList.remove("on"); setTimeout(()=>el.hidden = true, 300); if (ev) track(ev); };
+  $("kawaGo").href = DONATE_URL;
+  $("kawaGo").onclick = () => close("kawa-popup-klik");
+  $("kawaNo").onclick = () => close("kawa-popup-nie");
+  $("kawaX").onclick = () => close("kawa-popup-x");
+  setTimeout(()=>{ if (load("kawaDzien", "") === today) return;
+    el.hidden = false; requestAnimationFrame(()=>el.classList.add("on")); store("kawaDzien", today); track("kawa-popup-pokaz"); }, 6000);
+})();
 function planNote(){ const n = $("planNote"); if (n) n.hidden = !(S.date && S.date > new Date().toLocaleDateString("sv-SE")); }
 function setPlanDate(v){
   S.date = v || null; store("date", S.date);
