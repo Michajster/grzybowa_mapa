@@ -389,9 +389,10 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
     <div class="legend" id="legend" hidden>
-      <div id="legTitle">Prawdziwek: szansa na tle lasu</div>
+      <div id="legTitle">Prawdziwek: szansa (miejsce w lesie × pora i pogoda)</div>
       <div class="ramp" id="ramp"></div>
-      <div class="ramp-l"><span>słabiej</span><span>najlepsze 10%</span></div>
+      <div class="ramp-l"><span>słabiej</span><span>najlepsze miejsca przy dobrych warunkach</span></div>
+      <div class="ramp-l" id="legCond" style="display:block"></div>
       <div class="ramp-l" id="legIcons"></div>
       <div class="ramp-l"><span><i style="display:inline-block;width:10px;height:10px;background:var(--excl);vertical-align:middle"></i> wyłączone</span><span><i style="display:inline-block;width:10px;height:10px;border:2px solid #d0342c;vertical-align:middle"></i> zakaz wstępu</span></div>
     </div>
@@ -1004,16 +1005,26 @@ function scoreOf(f, season = true){
   return s;
 }
 function lowerBound(a,v){ let lo=0,hi=a.length; while(lo<hi){const m=(lo+hi)>>1; if(a[m]<v) lo=m+1; else hi=m;} return lo; }
+var COND = 1;
+const condWord = c => c >= .75 ? "dobre" : c >= .55 ? "przeciętne" : c >= .35 ? "słabe" : "bardzo słabe";
+function renderLegendCond(){ const e = $("legCond"); if (!e) return;
+  e.innerHTML = `Warunki teraz: <b>${condWord(COND)}</b> (${Math.round(COND*100)}%). Przy słabych warunkach mapa blednie.`; }
 function recompute(){
   if(!feats.length) return;
   const vals = feats.map(f=>scoreOf(f, false)), sf = seasonFactor(S.sp);
   const sorted = vals.filter(v=>v!=null).sort((a,b)=>a-b);
   const q = p => sorted[Math.min(sorted.length-1, Math.floor(p*sorted.length))];
   const cuts = [q(.5), q(.7), q(.85), q(.9)], op = S.op/100;
+  // kolor = miejsce w lesie (ranking) × faktyczne warunki (pora roku × pogoda): ciemny brąz tylko, gdy naprawdę jest szansa
+  const k = (typeof WX !== "undefined" && WX && typeof weatherMult === "function") ? weatherMult(WX).k : 1, cond = sf * k;
+  const g = Math.max(0.3, Math.min(1, (cond - 0.2) / 0.55));   // min. 0,3: nawet w słabe dni widać, gdzie w lesie jest najlepiej
+  COND = cond;
   feats.forEach((f,i)=>{ const v=vals[i]; f._v = v==null ? null : v*sf;
     f._c = v==null ? -1 : (v>=cuts[3]?4:v>=cuts[2]?3:v>=cuts[1]?2:v>=cuts[0]?1:0);
     f._p = v==null ? null : Math.round(100*lowerBound(sorted, v)/sorted.length);
-    polys[i].setStyle({fillColor: f._c<0?EXCL:RAMP[f._c], fillOpacity: f._c<0? op*0.6 : op*(0.55+0.45*f._c/4), opacity: op>0.05?0.5:0}); });
+    const cc = f._c < 0 ? -1 : Math.round(f._c * g);
+    polys[i].setStyle({fillColor: cc<0?EXCL:RAMP[cc], fillOpacity: cc<0? op*0.6 : op*(0.55+0.45*cc/4), opacity: op>0.05?0.5:0}); });
+  renderLegendCond();
   rankComps(); renderRank(); renderCard(); highlight(); if (NEAR) renderNearby(); drawIcons(); renderNearCtx();
 }
 function rankComps(){
@@ -1120,7 +1131,7 @@ function renderSpecies(){
     const on = el.querySelector('[aria-pressed="true"]');
     if (on && el.scrollWidth > el.clientWidth) { const l = on.offsetLeft - el.offsetLeft, r = l + on.offsetWidth;
       if (l < el.scrollLeft || r > el.scrollLeft + el.clientWidth) el.scrollLeft = Math.max(0, l - (el.clientWidth - on.offsetWidth)/2); } });
-  $("legTitle").textContent = SPECIES_INFO[S.sp].name+": szansa na tle lasu";
+  $("legTitle").textContent = SPECIES_INFO[S.sp].name+": szansa (miejsce w lesie × pora i pogoda)";
 }
 function renderNearCtx(){
   if (!document.getElementById("nearCtx")) return;
