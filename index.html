@@ -584,7 +584,7 @@ ol.near .dbox button.dshow{display:inline-block;width:auto;min-height:0;padding:
         <h3>Z czego powstaje ocena</h3>
         <ul class="factors">
           <li><b>Siedlisko</b> – żyzność i wilgotność gleby z leśnej inwentaryzacji.</li>
-          <li><b>Partnerzy</b> – większość grzybów na mapie żyje w symbiozie z konkretnymi drzewami: prawdziwek z sosną, świerkiem i bukiem, koźlarz z brzozą, maślak i rydz z sosną, ceglastopory z bukiem i świerkiem. Kania jest wyjątkiem: rozkłada ściółkę, więc liczy się dla niej raczej jasny las i skraj niż konkretne drzewo.</li>
+          <li><b>Partnerzy</b> – większość grzybów na mapie żyje w symbiozie z konkretnymi drzewami: prawdziwek z sosną, świerkiem i bukiem, koźlarz z brzozą, maślak i rydz z sosną, ceglastopory z bukiem i świerkiem, lejkowiec z bukiem, grabem i dębem. Kania jest wyjątkiem: rozkłada ściółkę, więc liczy się dla niej raczej jasny las i skraj niż konkretne drzewo.</li>
           <li><b>Wiek i zwarcie</b> – młodniki i bardzo gęste drzewostany wypadają słabiej niż dojrzały, przewiewny las.</li>
           <li><b>Brzeg lasu</b> – wydzielenia przy drogach, polanach i zrębach dostają niewielki bonus.</li>
           <li><b>Kalendarz</b> – w szczytowym miesiącu gatunek liczy się w pełni, w pozostałych miesiącach sezonu w ok. 65%, na obrzeżach sezonu w ok. 15%.</li>
@@ -662,7 +662,10 @@ const SPECIES_INFO = {
     risk:"Miąższ i pory po dotknięciu natychmiast granatowieją. To normalne. Jadalny tylko dobrze ugotowany, surowy szkodzi. Nie myl z rzadkim borowikiem szatańskim (białawy kapelusz, czerwona siateczka na trzonie)."},
   kania:{short:"Kania",name:"Czubajka kania",latin:"Macrolepiota procera",months:[7,8,9,10],peak:[8,9],
     text:"Na polanach, skrajach, przy drogach i w jasnych, rzadkich lasach. Nie potrzebuje drzewa-partnera, rozkłada ściółkę.",
-    risk:"Groźny sobowtór: muchomor sromotnikowy i inne muchomory. Zbieraj tylko duże, dorosłe owocniki: kapelusz z brązowymi łuskami, ruchomy podwójny pierścień, wężykowaty wzór na trzonie, u podstawy brak pochwy. Młodych „pałeczek” nie zbieraj."}
+    risk:"Groźny sobowtór: muchomor sromotnikowy i inne muchomory. Zbieraj tylko duże, dorosłe owocniki: kapelusz z brązowymi łuskami, ruchomy podwójny pierścień, wężykowaty wzór na trzonie, u podstawy brak pochwy. Młodych „pałeczek” nie zbieraj."},
+  lejkowiec:{short:"Lejkowiec",name:"Lejkowiec dęty",latin:"Craterellus cornucopioides",months:[7,8,9,10,11],peak:[9,10],
+    text:"W żyznych lasach liściastych i mieszanych, pod bukiem, grabem, dębem i leszczyną. Lubi cień, wilgoć i mech, rośnie gromadnie, często przy rowach i ścieżkach. Ciemny, łatwo go przeoczyć w ściółce.",
+    risk:"Dobrze rozpoznawalny: czarny lejek, pusty w środku aż do podstawy, gładki lub lekko pomarszczony spód bez blaszek. Podobny lejkowiec zatokowaty też jest jadalny. Zbieraj tylko świeże, nierozmiękłe owocniki."}
 };
 // Link do wsparcia (buycoffee.to, suppi.pl, Buy Me a Coffee…). Pusty = przycisk ukryty.
 const DONATE_URL = "https://buycoffee.to/michajster";
@@ -706,7 +709,10 @@ const MUSH = {
     <path d="M13.2 18.2c1.8.7 3.8.7 5.6 0l.3 1.4c-2 .8-4.2.8-6.2 0z" fill="#f6efe0" stroke="#6b5233" stroke-width=".6"/>
     <path d="M1.8 14.4C3.6 10.2 9.2 7.4 16 7.4s12.4 2.8 14.2 7c.3.8-.4 1.3-1.3 1.3H3.1c-.9 0-1.6-.5-1.3-1.3z" fill="#e8d8b6" stroke="#6b5233" stroke-width=".9"/>
     <path d="M13.4 8.2c.6-1.8 1.4-2.8 2.6-2.8s2 1 2.6 2.8c-1.6.4-3.6.4-5.2 0z" fill="#7a5233" stroke="#4a3018" stroke-width=".7"/>
-    <g fill="#8a6440"><ellipse cx="9" cy="11.6" rx="1.3" ry=".6"/><ellipse cx="23" cy="11.6" rx="1.3" ry=".6"/><ellipse cx="5.8" cy="13.8" rx="1.1" ry=".5"/><ellipse cx="26.2" cy="13.8" rx="1.1" ry=".5"/><ellipse cx="12.4" cy="13.6" rx="1.2" ry=".55"/><ellipse cx="19.6" cy="13.6" rx="1.2" ry=".55"/><ellipse cx="16" cy="10.6" rx="1.2" ry=".55"/></g>`
+    <g fill="#8a6440"><ellipse cx="9" cy="11.6" rx="1.3" ry=".6"/><ellipse cx="23" cy="11.6" rx="1.3" ry=".6"/><ellipse cx="5.8" cy="13.8" rx="1.1" ry=".5"/><ellipse cx="26.2" cy="13.8" rx="1.1" ry=".5"/><ellipse cx="12.4" cy="13.6" rx="1.2" ry=".55"/><ellipse cx="19.6" cy="13.6" rx="1.2" ry=".55"/><ellipse cx="16" cy="10.6" rx="1.2" ry=".55"/></g>`,
+  lejkowiec: `<path d="M3.2 6.6c2.2 1.6 4.4.4 6.6 1.2 2.2-.8 4 .6 6.2.2 2.2.4 4-1 6.2-.2 2.2-.8 4.4.4 6.6-1.2-1 4.6-5.4 8.8-9.4 11.4-.6 3.4-.6 7.6.2 10.4.3 1.2-1.4 2-3.6 2s-3.9-.8-3.6-2c.8-2.8.8-7 .2-10.4C8.6 15.4 4.2 11.2 3.2 6.6z" fill="#3a3533" stroke="#141110" stroke-width=".9"/>
+    <path d="M3.2 6.6c2.2 1.6 4.4.4 6.6 1.2 2.2-.8 4 .6 6.2.2 2.2.4 4-1 6.2-.2 2.2-.8 4.4.4 6.6-1.2-2.6 2.6-7.4 3.8-12.8 3.8S5.8 9.2 3.2 6.6z" fill="#1c1918" stroke="#141110" stroke-width=".7"/>
+    <path d="M13.4 18.4c.4 3.4.4 7.4-.2 10.2m5.4-10.2c-.4 3.4-.4 7.4.2 10.2M8.4 12.4c1.6 2.2 3.4 4 5 5.6m10.2-5.6c-1.6 2.2-3.4 4-5 5.6" stroke="#6e6662" stroke-width=".8" fill="none"/>`
 };
 function mushSvg(sp, size){ return `<svg class="mush" width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true">${MUSH[sp]}</svg>`; }
 
@@ -737,11 +743,14 @@ const MODEL = {
   // kania: rozkłada ściółkę (nie potrzebuje drzewa-partnera); polany, skraje, rzadkie i jasne drzewostany
   kania:{site:[.6,.9,.5,1,.6,.9,.5,.2,.05,.1,.2], host:{}, hostDef:.6,
     age:[[0,.5],[10,.6],[20,.7],[40,.9],[80,1],[160,.9]], dens:[[.2,1],[.4,1],[.6,.8],[.9,.45],[1,.35]], edge:.8},
+  // lejkowiec dęty: żyzne lasy liściaste (buk, grab, dąb, leszczyna), starsze, cieniste i wilgotne; rzadko na skrajach
+  lejkowiec:{site:[.05,.3,.15,.8,.6,1,.7,.3,.05,.3,.05], host:{BK:1,GB:.9,DB:.8,LSZ:.6,LP:.5,KL:.4,JD:.4,JW:.4,"ŚW":.2,BRZ:.15,SO:.05},
+    age:[[0,.02],[25,.1],[40,.6],[60,1],[150,1],[200,.9]], dens:[[.2,.6],[.4,.8],[.6,1],[.9,1],[1,.9]], edge:.2},
 };
 // strefa wysokościowa z kodu siedliska: 0 niziny, 1 wyżyny, 2 góry (kody z „G”: BG…, BMG…, LMG…, LG…, OLJG…)
 // skala gatunku: model dla grzybów o wąskim siedlisku (koźlarz, maślak, ceglastopory, rydz) daje niskie surowe wartości,
 // więc wyrównujemy je tak, żeby 10% najlepszych wydzieleń w Polsce miało ok. 70+ (jak u prawdziwka); te same liczby są w pass2.py
-const SP_SCALE = {kozlarz:2.28, maslak:2.2, rydz:1.32, ceglastopory:1.9};
+const SP_SCALE = {kozlarz:2.28, maslak:2.2, rydz:1.32, ceglastopory:1.9, lejkowiec:1.5};
 function zoneOf(code){ code = code || ""; return /^(B|BM|LM|L|LŁ|OLJ|OL)G/.test(code) || code === "BWG" ? 2 : /WY/.test(code) ? 1 : 0; }
 function interp(pts, x){ if (x<=pts[0][0]) return pts[0][1]; for (let i=1;i<pts.length;i++){ if (x<=pts[i][0]) { const [x0,y0]=pts[i-1],[x1,y1]=pts[i]; return y0+(y1-y0)*(x-x0)/(x1-x0); } } return pts[pts.length-1][1]; }
 function siteKey(code){
@@ -793,7 +802,7 @@ function scoreFor(f, sp, season = true, wx){
 // liczba miniaturek 0–5 dla gatunku
 const ICON_STEPS = [20, 35, 50, 65, 80];
 function iconCount(f, sp){ const s = scoreFor(f, sp); if (s==null) return 0; let n=0; for (const t of ICON_STEPS) if (s>=t) n++; return n; }
-const SP_ORDER = ["prawdziwek","podgrzybek","kozlarz","kurka","maslak","rydz","ceglastopory","kania"];
+const SP_ORDER = ["prawdziwek","podgrzybek","kozlarz","kurka","maslak","rydz","ceglastopory","kania","lejkowiec"];
 function iconsFor(f){ const hid = (typeof S !== "undefined" && S.hidden) || null; return SP_ORDER.filter(sp=>!hid || !hid.has(sp)).map(sp=>({sp, n:iconCount(f, sp)})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n); }
 function iconRow(list, size){ return list.map(({sp,n})=>`<span class="mrow" title="${SPECIES_INFO[sp].short}: ${n}/5">${mushSvg(sp,size).repeat(n)}</span>`).join(""); }
 
